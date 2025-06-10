@@ -8,96 +8,96 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 15 25% 25%;
+    --foreground: 12 25% 25%;
 
     --card: 0 0% 100%;
-    --card-foreground: 15 25% 25%;
+    --card-foreground: 12 25% 25%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 15 25% 25%;
+    --popover-foreground: 12 25% 25%;
 
     --primary: 340 55% 65%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 15 100% 96%;
-    --secondary-foreground: 15 25% 25%;
+    --secondary: 12 100% 96%;
+    --secondary-foreground: 12 25% 25%;
 
-    --muted: 15 100% 96%;
-    --muted-foreground: 15 15% 55%;
+    --muted: 12 100% 96%;
+    --muted-foreground: 12 15% 55%;
 
-    --accent: 15 100% 94%;
-    --accent-foreground: 15 25% 25%;
+    --accent: 12 100% 94%;
+    --accent-foreground: 12 25% 25%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 15 30% 90%;
-    --input: 15 30% 90%;
+    --border: 12 30% 90%;
+    --input: 12 30% 90%;
     --ring: 340 55% 65%;
 
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 15 25% 25%;
+    --sidebar-foreground: 12 25% 25%;
     --sidebar-primary: 340 55% 65%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 15 100% 96%;
-    --sidebar-accent-foreground: 15 25% 25%;
-    --sidebar-border: 15 30% 90%;
+    --sidebar-accent: 12 100% 96%;
+    --sidebar-accent-foreground: 12 25% 25%;
+    --sidebar-border: 12 30% 90%;
     --sidebar-ring: 340 55% 65%;
 
     /* Custom pink/peach theme colors */
-    --rose-50: 15 100% 97%;
-    --rose-100: 15 100% 94%;
-    --rose-200: 15 90% 88%;
-    --rose-300: 15 80% 80%;
-    --rose-400: 15 70% 70%;
+    --rose-50: 12 100% 97%;
+    --rose-100: 12 100% 94%;
+    --rose-200: 12 90% 88%;
+    --rose-300: 12 80% 80%;
+    --rose-400: 12 70% 70%;
     --rose-500: 340 55% 65%;
     --rose-600: 340 65% 55%;
     --rose-700: 340 75% 45%;
-    --peach-50: 25 100% 96%;
-    --peach-100: 25 100% 92%;
-    --peach-200: 25 95% 85%;
-    --peach-300: 25 85% 75%;
-    --peach-400: 25 75% 65%;
-    --peach-500: 25 65% 55%;
+    --peach-50: 18 100% 96%;
+    --peach-100: 18 100% 92%;
+    --peach-200: 18 95% 85%;
+    --peach-300: 18 85% 75%;
+    --peach-400: 18 75% 65%;
+    --peach-500: 18 65% 55%;
   }
 
   .dark {
-    --background: 15 15% 8%;
-    --foreground: 15 10% 92%;
+    --background: 12 15% 8%;
+    --foreground: 12 10% 92%;
 
-    --card: 15 15% 8%;
-    --card-foreground: 15 10% 92%;
+    --card: 12 15% 8%;
+    --card-foreground: 12 10% 92%;
 
-    --popover: 15 15% 8%;
-    --popover-foreground: 15 10% 92%;
+    --popover: 12 15% 8%;
+    --popover-foreground: 12 10% 92%;
 
     --primary: 340 55% 70%;
-    --primary-foreground: 15 15% 8%;
+    --primary-foreground: 12 15% 8%;
 
-    --secondary: 15 15% 15%;
-    --secondary-foreground: 15 10% 92%;
+    --secondary: 12 15% 15%;
+    --secondary-foreground: 12 10% 92%;
 
-    --muted: 15 15% 15%;
-    --muted-foreground: 15 10% 70%;
+    --muted: 12 15% 15%;
+    --muted-foreground: 12 10% 70%;
 
-    --accent: 15 15% 15%;
-    --accent-foreground: 15 10% 92%;
+    --accent: 12 15% 15%;
+    --accent-foreground: 12 10% 92%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 15 15% 20%;
-    --input: 15 15% 20%;
+    --border: 12 15% 20%;
+    --input: 12 15% 20%;
     --ring: 340 55% 70%;
-    --sidebar-background: 15 15% 8%;
-    --sidebar-foreground: 15 10% 92%;
+    --sidebar-background: 12 15% 8%;
+    --sidebar-foreground: 12 10% 92%;
     --sidebar-primary: 340 55% 70%;
-    --sidebar-primary-foreground: 15 15% 8%;
-    --sidebar-accent: 15 15% 15%;
-    --sidebar-accent-foreground: 15 10% 92%;
-    --sidebar-border: 15 15% 20%;
+    --sidebar-primary-foreground: 12 15% 8%;
+    --sidebar-accent: 12 15% 15%;
+    --sidebar-accent-foreground: 12 10% 92%;
+    --sidebar-border: 12 15% 20%;
     --sidebar-ring: 340 55% 70%;
   }
 }
