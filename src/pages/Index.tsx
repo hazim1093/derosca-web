@@ -47,14 +47,14 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md text-center space-y-8">
         <RoscaLogo />
         
         <div className="space-y-4">
           <Button
             onClick={handleCreateRosca}
-            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-2xl py-4 text-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg"
+            className="w-full bg-gradient-to-r from-rose-500 to-peach-400 hover:from-rose-600 hover:to-peach-500 text-white rounded-2xl py-4 text-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg"
           >
             <Plus className="w-5 h-5 mr-3" />
             Create New ROSCA
@@ -63,15 +63,15 @@ const Index = () => {
           <Button
             onClick={handleJoinRosca}
             variant="outline"
-            className="w-full border-2 border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-700 hover:text-blue-700 rounded-2xl py-4 text-lg font-medium transition-all duration-200 transform hover:scale-105"
+            className="w-full border-2 border-rose-200 hover:border-rose-300 hover:bg-rose-50 text-rose-600 hover:text-rose-700 rounded-2xl py-4 text-lg font-medium transition-all duration-200 transform hover:scale-105"
           >
             <Users className="w-5 h-5 mr-3" />
             Join Existing ROSCA
           </Button>
         </div>
 
-        <div className="pt-8 border-t border-gray-100">
-          <p className="text-sm text-gray-500 leading-relaxed">
+        <div className="pt-8 border-t border-rose-100">
+          <p className="text-sm text-muted-foreground leading-relaxed">
             ROSCA enables groups to save and borrow together in a transparent, 
             blockchain-based rotating credit system.
           </p>
