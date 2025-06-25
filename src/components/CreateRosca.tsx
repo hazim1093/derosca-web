@@ -1,16 +1,15 @@
+
 import React, { useState } from 'react';
-import { ArrowLeft, Users, DollarSign } from 'lucide-react';
+import { Users, DollarSign } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import ConnectButton from '@/components/ui/connect-button';
 import { useContractDeployment, DeployParams } from '../lib/contracts/roscaContract';
 import { toast } from 'sonner';
 
 interface CreateRoscaProps {
-  onBack: () => void;
   onDeploy: (params: RoscaParams) => void;
 }
 
@@ -21,7 +20,7 @@ interface RoscaParams {
   contractAddress: string;
 }
 
-const CreateRosca: React.FC<CreateRoscaProps> = ({ onBack, onDeploy }) => {
+const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
   const [participants, setParticipants] = useState<number>(5);
   const [totalAmount, setTotalAmount] = useState<number>(1); // Start with 1 ETH
   const [isDeploying, setIsDeploying] = useState(false);
@@ -36,6 +35,7 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onBack, onDeploy }) => {
   const handleDeploy = async () => {
     if (!isConnected) {
       setError('Please connect your wallet first');
+      toast.error('Please connect your wallet to continue');
       return;
     }
 
@@ -76,17 +76,8 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onBack, onDeploy }) => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Button
-          variant="ghost"
-          onClick={onBack}
-          className="mb-6 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-
         <Card className="border-0 shadow-lg">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold text-foreground">
@@ -95,15 +86,14 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onBack, onDeploy }) => {
             <p className="text-muted-foreground">Set your ROSCA parameters</p>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Wallet Connection */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">
-                Connect Your Wallet
-              </Label>
-              <div className="flex justify-center">
-                <ConnectButton />
+            {/* Wallet Connection Status */}
+            {!isConnected && (
+              <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-xl">
+                <p className="text-yellow-700 text-sm">
+                  ⚠️ Please connect your wallet using the button in the header to continue
+                </p>
               </div>
-            </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="participants" className="text-sm font-medium text-foreground">

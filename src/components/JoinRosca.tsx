@@ -1,23 +1,31 @@
 
 import React, { useState } from 'react';
-import { ArrowLeft, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
+import { useAccount } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from 'sonner';
 
 interface JoinRoscaProps {
-  onBack: () => void;
   onJoin: (contractAddress: string) => void;
 }
 
-const JoinRosca: React.FC<JoinRoscaProps> = ({ onBack, onJoin }) => {
+const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
   const [contractAddress, setContractAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [roscaDetails, setRoscaDetails] = useState<any>(null);
 
+  const { isConnected } = useAccount();
+
   const handleSearch = async () => {
     if (!contractAddress) return;
+    
+    if (!isConnected) {
+      toast.error('Please connect your wallet to search for ROSCA contracts');
+      return;
+    }
     
     setIsLoading(true);
     // Simulate fetching contract details
@@ -34,21 +42,16 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onBack, onJoin }) => {
   };
 
   const handleJoin = () => {
+    if (!isConnected) {
+      toast.error('Please connect your wallet to join the ROSCA');
+      return;
+    }
     onJoin(contractAddress);
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Button 
-          variant="ghost" 
-          onClick={onBack}
-          className="mb-6 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-
         <Card className="border-0 shadow-lg">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold text-foreground">
@@ -57,6 +60,15 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onBack, onJoin }) => {
             <p className="text-muted-foreground">Enter the contract address</p>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Wallet Connection Status */}
+            {!isConnected && (
+              <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-xl">
+                <p className="text-yellow-700 text-sm">
+                  ⚠️ Please connect your wallet using the button in the header to continue
+                </p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="address" className="text-sm font-medium text-foreground">
                 Contract Address
@@ -73,7 +85,7 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onBack, onJoin }) => {
                 </div>
                 <Button
                   onClick={handleSearch}
-                  disabled={!contractAddress || isLoading}
+                  disabled={!contractAddress || isLoading || !isConnected}
                   variant="outline"
                   className="rounded-xl border-rose-200 hover:bg-rose-50"
                 >
@@ -121,6 +133,7 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onBack, onJoin }) => {
             {roscaDetails && (
               <Button
                 onClick={handleJoin}
+                disabled={!isConnected}
                 className="w-full bg-gradient-to-r from-peach-400 to-rose-500 hover:from-peach-500 hover:to-rose-600 text-white rounded-xl py-3 font-medium transition-all duration-200"
               >
                 Register + Contribute {roscaDetails.contributionAmount} ETH
