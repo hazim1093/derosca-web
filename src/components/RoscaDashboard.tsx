@@ -1,13 +1,14 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, Eye, Plus, Gift, ArrowLeft, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { localhostChain } from '@/lib/wagmi';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { useAccount, useReadContract, useReadContracts, usePublicClient } from 'wagmi';
+import { useAccount, usePublicClient } from 'wagmi';
 import { roscaAbi } from '../lib/contracts/roscaContract';
-import { fetchParticipants, fetchContractValue, fetchRoundStatus, fetchHasContributedBatch } from '../lib/services/roscaService';
+import { fetchContractValue, fetchRoundStatus } from '../lib/services/roscaService';
+import { useRoscaParticipants } from '../hooks/useRoscaParticipants';
 
 interface RoscaDashboardProps {
   onBack: () => void;
@@ -29,12 +30,6 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ onBack, roscaInfo }) =>
   const [roundStatusRaw, setRoundStatusRaw] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Participants
-  const [participantAddresses, setParticipantAddresses] = useState<`0x${string}`[]>([]);
-  const [participantsLoading, setParticipantsLoading] = useState(false);
-  const [participantsError, setParticipantsError] = useState<string | null>(null);
-  const [hasContributedStatuses, setHasContributedStatuses] = useState<boolean[]>([]);
 
   // Fetch all contract data on mount or when contractAddress changes
   useEffect(() => {
@@ -70,47 +65,12 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ onBack, roscaInfo }) =>
     fetchAll();
   }, [contractAddress, publicClient]);
 
-  // Fetch participants when totalParticipants is loaded
-  useEffect(() => {
-    const fetchAndSetParticipants = async () => {
-      if (!contractAddress || typeof totalParticipants !== 'bigint' || !publicClient) return;
-      setParticipantsLoading(true);
-      setParticipantsError(null);
-      try {
-        const addresses = await fetchParticipants({
-          contractAddress,
-          totalParticipants: Number(totalParticipants),
-          publicClient,
-          roscaAbi,
-        });
-        setParticipantAddresses(addresses);
-      } catch (err: any) {
-        setParticipantsError(err.message || 'Failed to fetch participants');
-      } finally {
-        setParticipantsLoading(false);
-      }
-    };
-    fetchAndSetParticipants();
-  }, [contractAddress, totalParticipants, publicClient]);
-
-  // Fetch hasContributed for each participant
-  useEffect(() => {
-    const fetchHasContributed = async () => {
-      if (!contractAddress || !publicClient || participantAddresses.length === 0) return;
-      try {
-        const statuses = await fetchHasContributedBatch({
-          contractAddress,
-          publicClient,
-          roscaAbi,
-          addresses: participantAddresses,
-        });
-        setHasContributedStatuses(statuses);
-      } catch {
-        setHasContributedStatuses([]);
-      }
-    };
-    fetchHasContributed();
-  }, [contractAddress, publicClient, participantAddresses]);
+  // Use custom hook for participants
+  const { participants, loading: participantsLoading, error: participantsError } = useRoscaParticipants({
+    contractAddress,
+    totalParticipants,
+    publicClient,
+  });
 
   // Destructure roundStatus tuple if available
   let roundNumber, recipient, totalContributed, targetAmount, isDistributed;
@@ -121,14 +81,6 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ onBack, roscaInfo }) =>
     targetAmount = roundStatusRaw[3];
     isDistributed = roundStatusRaw[4];
   }
-
-  // Participants structure
-  const participants = (participantAddresses ?? []).map((addr, i) => ({
-    id: i + 1,
-    address: addr || '0x',
-    status: hasContributedStatuses[i] ? 'paid' : 'pending',
-    turn: i + 1,
-  }));
 
   // Determine myTurn
   let myTurn = false;
