@@ -5,7 +5,6 @@ import RoscaLogo from '@/components/RoscaLogo';
 import CreateRosca from '@/components/CreateRosca';
 import JoinRosca from '@/components/JoinRosca';
 import RoscaDashboard from '@/components/RoscaDashboard';
-import WalletTest from '@/components/WalletTest';
 
 type AppState = 'landing' | 'create' | 'join' | 'dashboard';
 
@@ -50,8 +49,6 @@ const Index = () => {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md text-center space-y-8">
         <RoscaLogo />
-
-        <WalletTest />
 
         <div className="space-y-4">
           <Button
