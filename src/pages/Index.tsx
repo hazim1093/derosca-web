@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Plus, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +10,7 @@ type AppState = 'landing' | 'create' | 'join' | 'dashboard';
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<AppState>('landing');
+  const [roscaInfo, setRoscaInfo] = useState<any>(null);
 
   const handleCreateRosca = () => {
     setCurrentView('create');
@@ -26,6 +26,7 @@ const Index = () => {
 
   const handleRoscaDeployed = (params: any) => {
     console.log('ROSCA deployed with params:', params);
+    setRoscaInfo(params);
     setCurrentView('dashboard');
   };
 
@@ -43,14 +44,14 @@ const Index = () => {
   }
 
   if (currentView === 'dashboard') {
-    return <RoscaDashboard onBack={handleBack} />;
+    return <RoscaDashboard onBack={handleBack} roscaInfo={roscaInfo} />;
   }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md text-center space-y-8">
         <RoscaLogo />
-        
+
         <div className="space-y-4">
           <Button
             onClick={handleCreateRosca}
@@ -59,7 +60,7 @@ const Index = () => {
             <Plus className="w-5 h-5 mr-3" />
             Create New ROSCA
           </Button>
-          
+
           <Button
             onClick={handleJoinRosca}
             variant="outline"
@@ -72,7 +73,7 @@ const Index = () => {
 
         <div className="pt-8 border-t border-rose-100">
           <p className="text-sm text-muted-foreground leading-relaxed">
-            ROSCA enables groups to save and borrow together in a transparent, 
+            ROSCA enables groups to save and borrow together in a transparent,
             blockchain-based rotating credit system.
           </p>
         </div>

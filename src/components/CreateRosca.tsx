@@ -1,10 +1,13 @@
-
 import React, { useState } from 'react';
 import { ArrowLeft, Users, DollarSign } from 'lucide-react';
+import { useAccount } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import ConnectButton from '@/components/ui/connect-button';
+import { useContractDeployment, DeployParams } from '../lib/contracts/roscaContract';
+import { toast } from 'sonner';
 
 interface CreateRoscaProps {
   onBack: () => void;
@@ -15,33 +18,68 @@ interface RoscaParams {
   numberOfParticipants: number;
   totalAmount: number;
   contributionAmount: number;
+  contractAddress: string;
 }
 
 const CreateRosca: React.FC<CreateRoscaProps> = ({ onBack, onDeploy }) => {
   const [participants, setParticipants] = useState<number>(5);
-  const [totalAmount, setTotalAmount] = useState<number>(1000);
+  const [totalAmount, setTotalAmount] = useState<number>(1); // Start with 1 ETH
   const [isDeploying, setIsDeploying] = useState(false);
+  const [error, setError] = useState<string>('');
+  const [deployedAddress, setDeployedAddress] = useState<string>('');
+
+  const { isConnected } = useAccount();
+  const { deployContract } = useContractDeployment();
 
   const contributionAmount = totalAmount / participants;
 
   const handleDeploy = async () => {
+    if (!isConnected) {
+      setError('Please connect your wallet first');
+      return;
+    }
+
     setIsDeploying(true);
-    // Simulate contract deployment
-    setTimeout(() => {
+    setError('');
+
+    try {
+      const params: DeployParams = {
+        numberOfParticipants: participants,
+        totalAmount
+      };
+
+      console.log('Deployment parameters:', params);
+      console.log('Contribution amount:', totalAmount / participants);
+
+      toast.info('Deploying ROSCA contract...');
+
+      const contractAddress = await deployContract(params);
+
+      setDeployedAddress(contractAddress);
+      toast.success(`ROSCA contract deployed successfully at ${contractAddress}`);
+
+      // Call the original onDeploy callback with the contract data and address
       onDeploy({
         numberOfParticipants: participants,
         totalAmount,
-        contributionAmount
+        contributionAmount,
+        contractAddress
       });
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Deployment failed';
+      setError(errorMessage);
+      toast.error('Failed to deploy contract. Please try again.');
+    } finally {
       setIsDeploying(false);
-    }, 2000);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           onClick={onBack}
           className="mb-6 text-muted-foreground hover:text-foreground"
         >
@@ -57,6 +95,16 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onBack, onDeploy }) => {
             <p className="text-muted-foreground">Set your ROSCA parameters</p>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Wallet Connection */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                Connect Your Wallet
+              </Label>
+              <div className="flex justify-center">
+                <ConnectButton />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="participants" className="text-sm font-medium text-foreground">
                 Number of Participants
@@ -84,7 +132,7 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onBack, onDeploy }) => {
                 <Input
                   id="amount"
                   type="number"
-                  min="1"
+                  min="0.1"
                   step="0.1"
                   value={totalAmount}
                   onChange={(e) => setTotalAmount(Number(e.target.value))}
@@ -105,15 +153,32 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onBack, onDeploy }) => {
                   <span className="font-medium">{totalAmount} ETH</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Per Contribution:</span>
+                  <span>Your Initial Contribution:</span>
                   <span className="font-medium">{contributionAmount.toFixed(3)} ETH</span>
                 </div>
               </div>
             </div>
 
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 p-3 rounded-xl">
+                <p className="text-red-700 text-sm">{error}</p>
+              </div>
+            )}
+
+            {/* Success Display */}
+            {deployedAddress && (
+              <div className="bg-green-50 border border-green-200 p-3 rounded-xl">
+                <p className="text-green-700 text-sm font-medium">Contract Deployed Successfully!</p>
+                <p className="text-green-600 text-xs mt-1 break-all">
+                  Address: {deployedAddress}
+                </p>
+              </div>
+            )}
+
             <Button
               onClick={handleDeploy}
-              disabled={isDeploying}
+              disabled={isDeploying || !isConnected}
               className="w-full bg-gradient-to-r from-rose-500 to-peach-400 hover:from-rose-600 hover:to-peach-500 text-white rounded-xl py-3 font-medium transition-all duration-200"
             >
               {isDeploying ? 'Deploying Contract...' : 'Deploy Contract + Initial Contribution'}
