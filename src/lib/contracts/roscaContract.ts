@@ -1,5 +1,6 @@
 import { parseEther } from 'viem';
 import { useWalletClient, usePublicClient } from 'wagmi';
+import { localhostChain } from '../wagmi';
 
 // Contract ABI from your compiled contract
 export const roscaAbi = [
@@ -440,4 +441,48 @@ export const useContractDeployment = () => {
   };
 
   return { deployContract };
+};
+
+// React hook for joining an existing ROSCA contract
+export const useJoinRosca = () => {
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
+
+  /**
+   * Join a ROSCA contract by calling registerParticipant (payable)
+   * @param contractAddress The address of the deployed ROSCA contract
+   * @param contributionAmount The amount to contribute (in ETH, as number or string)
+   * @returns Transaction hash
+   */
+  const joinRosca = async (
+    contractAddress: string,
+    contributionAmount: number | string
+  ): Promise<string> => {
+    if (!walletClient) {
+      throw new Error('Wallet not connected');
+    }
+    if (!publicClient) {
+      throw new Error('No public client');
+    }
+    const [account] = await walletClient.getAddresses();
+    const value = parseEther(contributionAmount.toString());
+    try {
+      const hash = await walletClient.writeContract({
+        account,
+        address: contractAddress as `0x${string}`,
+        abi: roscaAbi,
+        functionName: 'registerParticipant',
+        value,
+        chain: localhostChain,
+      });
+      // Wait for transaction confirmation
+      await publicClient.waitForTransactionReceipt({ hash });
+      return hash;
+    } catch (error) {
+      console.error('Error joining ROSCA:', error);
+      throw error;
+    }
+  };
+
+  return { joinRosca };
 };
