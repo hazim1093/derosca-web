@@ -86,3 +86,60 @@ export async function fetchHasContributedBatch({
     })
   );
 }
+
+// Fetch all ROSCA details and compute status for the JoinRosca UI
+export async function getRoscaDetails({ contractAddress, publicClient, roscaAbi }) {
+  // Fetch contract values
+  const [totalAmount, contributionAmount, totalParticipants] = await Promise.all([
+    fetchContractValue({
+      contractAddress,
+      publicClient,
+      roscaAbi,
+      functionName: 'totalAmount',
+    }),
+    fetchContractValue({
+      contractAddress,
+      publicClient,
+      roscaAbi,
+      functionName: 'contributionAmount',
+    }),
+    fetchContractValue({
+      contractAddress,
+      publicClient,
+      roscaAbi,
+      functionName: 'totalParticipants',
+    }),
+  ]);
+
+  // Fetch current participants
+  const participants = await fetchParticipants({
+    contractAddress,
+    totalParticipants: Number(totalParticipants),
+    publicClient,
+    roscaAbi,
+  });
+
+  // Fetch round status
+  const roundStatus = await fetchRoundStatus({
+    contractAddress,
+    publicClient,
+    roscaAbi,
+  });
+
+  // Compute a user-friendly status string
+  let status = 'Active';
+  if (participants.length >= Number(totalParticipants)) {
+    status = 'Full';
+  }
+  if (roundStatus.isDistributed) {
+    status = 'Distributed';
+  }
+
+  return {
+    totalAmount: Number(totalAmount) / 1e18,
+    contributionAmount: Number(contributionAmount) / 1e18,
+    participants: Number(totalParticipants),
+    currentParticipants: participants.length,
+    status,
+  };
+}

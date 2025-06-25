@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { roscaAbi, useJoinRosca } from '../lib/contracts/roscaContract';
-import { fetchContractValue, fetchParticipants } from '../lib/services/roscaService';
+import { getRoscaDetails } from '../lib/services/roscaService';
 
 interface JoinRoscaProps {
   onJoin: (contractAddress: string) => void;
@@ -35,43 +35,8 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
     setIsLoading(true);
     setFetchError(null);
     try {
-      // Fetch contract values
-      const [totalAmount, contributionAmount, totalParticipants] = await Promise.all([
-        fetchContractValue({
-          contractAddress,
-          publicClient,
-          roscaAbi,
-          functionName: 'totalAmount',
-        }),
-        fetchContractValue({
-          contractAddress,
-          publicClient,
-          roscaAbi,
-          functionName: 'contributionAmount',
-        }),
-        fetchContractValue({
-          contractAddress,
-          publicClient,
-          roscaAbi,
-          functionName: 'totalParticipants',
-        }),
-      ]);
-
-      // Fetch current participants
-      const participants = await fetchParticipants({
-        contractAddress,
-        totalParticipants: Number(totalParticipants),
-        publicClient,
-        roscaAbi,
-      });
-
-      setRoscaDetails({
-        totalAmount: Number(totalAmount) / 1e18,
-        contributionAmount: Number(contributionAmount) / 1e18,
-        participants: Number(totalParticipants),
-        currentParticipants: participants.length,
-        status: 'active', // You can enhance this by reading more contract state if needed
-      });
+      const details = await getRoscaDetails({ contractAddress, publicClient, roscaAbi });
+      setRoscaDetails(details);
       setFetchError(null);
     } catch (err) {
       setRoscaDetails(null);
