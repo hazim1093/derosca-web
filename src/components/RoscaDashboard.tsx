@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Eye, Plus, Gift, ArrowLeft, ExternalLink } from 'lucide-react';
+import { Users, Eye, Plus, Gift, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,11 +11,10 @@ import { fetchContractValue, fetchRoundStatus } from '../lib/services/roscaServi
 import { useRoscaParticipants } from '../hooks/useRoscaParticipants';
 
 interface RoscaDashboardProps {
-  onBack: () => void;
   roscaInfo?: any;
 }
 
-const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ onBack, roscaInfo }) => {
+const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const chain = localhostChain;
   const contractAddress = roscaInfo?.contractAddress;
@@ -106,14 +105,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ onBack, roscaInfo }) =>
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <Button
-            variant="ghost"
-            onClick={onBack}
-            className="text-gray-600 hover:text-gray-900"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
+          <div></div> {/* Empty div to maintain layout */}
           <Badge variant="secondary" className="bg-green-100 text-green-800">
             Active ROSCA
           </Badge>
