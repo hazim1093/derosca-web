@@ -18,6 +18,7 @@ interface RoscaParams {
   numberOfParticipants: number;
   totalAmount: number;
   contributionAmount: number;
+  contractAddress: string;
 }
 
 const CreateRosca: React.FC<CreateRoscaProps> = ({ onBack, onDeploy }) => {
@@ -57,11 +58,12 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onBack, onDeploy }) => {
       setDeployedAddress(contractAddress);
       toast.success(`ROSCA contract deployed successfully at ${contractAddress}`);
 
-      // Call the original onDeploy callback with the contract data
+      // Call the original onDeploy callback with the contract data and address
       onDeploy({
         numberOfParticipants: participants,
         totalAmount,
-        contributionAmount
+        contributionAmount,
+        contractAddress
       });
 
     } catch (err) {

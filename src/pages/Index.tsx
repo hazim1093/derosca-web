@@ -10,6 +10,7 @@ type AppState = 'landing' | 'create' | 'join' | 'dashboard';
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<AppState>('landing');
+  const [roscaInfo, setRoscaInfo] = useState<any>(null);
 
   const handleCreateRosca = () => {
     setCurrentView('create');
@@ -25,6 +26,7 @@ const Index = () => {
 
   const handleRoscaDeployed = (params: any) => {
     console.log('ROSCA deployed with params:', params);
+    setRoscaInfo(params);
     setCurrentView('dashboard');
   };
 
@@ -42,7 +44,7 @@ const Index = () => {
   }
 
   if (currentView === 'dashboard') {
-    return <RoscaDashboard onBack={handleBack} />;
+    return <RoscaDashboard onBack={handleBack} roscaInfo={roscaInfo} />;
   }
 
   return (

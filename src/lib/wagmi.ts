@@ -2,7 +2,7 @@ import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { Chain } from 'viem';
 
 // Create custom localhost chain with explicit Chain ID 31337
-const localhostChain: Chain = {
+export const localhostChain: Chain = {
   id: 31337,
   name: 'Localhost',
   nativeCurrency: {
