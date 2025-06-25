@@ -115,11 +115,12 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ onBack, roscaInfo }) =>
         : [],
     [contractAddress, participantAddresses]
   );
-  const { data: hasContributedStatusesResult = [], isLoading: loadingHasContributed } = useReadContracts({
+  const useReadContractsAny = useReadContracts as any;
+  const { data: hasContributedStatusesResult = [], isLoading: loadingHasContributed } = useReadContractsAny({
     contracts: hasContributedCalls,
     allowFailure: false,
     query: { enabled: hasContributedCalls.length > 0 && !!contractAddress },
-  }) as any;
+  });
   const hasContributedStatuses = (hasContributedStatusesResult as unknown[]).map(
     (x) => typeof x === 'boolean' ? x : false
   );
