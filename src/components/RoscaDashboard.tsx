@@ -7,6 +7,7 @@ import { localhostChain } from '@/lib/wagmi';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useAccount, useReadContract, useReadContracts, usePublicClient } from 'wagmi';
 import { roscaAbi } from '../lib/contracts/roscaContract';
+import { fetchParticipants, fetchContractValue, fetchRoundStatus, fetchHasContributedBatch } from '../lib/services/roscaService';
 
 interface RoscaDashboardProps {
   onBack: () => void;
@@ -18,33 +19,98 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ onBack, roscaInfo }) =>
   const chain = localhostChain;
   const contractAddress = roscaInfo?.contractAddress;
   const { address: userAddress } = useAccount();
+  const publicClient = usePublicClient();
 
-  // Fetch contract data
-  const { data: totalAmount, isLoading: loadingTotalAmount } = useReadContract({
-    address: contractAddress,
-    abi: roscaAbi,
-    functionName: 'totalAmount',
-  });
-  const { data: contributionAmount, isLoading: loadingContributionAmount } = useReadContract({
-    address: contractAddress,
-    abi: roscaAbi,
-    functionName: 'contributionAmount',
-  });
-  const { data: totalParticipants, isLoading: loadingTotalParticipants } = useReadContract({
-    address: contractAddress,
-    abi: roscaAbi,
-    functionName: 'totalParticipants',
-  });
-  const { data: currentRound, isLoading: loadingCurrentRound } = useReadContract({
-    address: contractAddress,
-    abi: roscaAbi,
-    functionName: 'currentRound',
-  });
-  const { data: roundStatusRaw, isLoading: loadingRoundStatus } = useReadContract({
-    address: contractAddress,
-    abi: roscaAbi,
-    functionName: 'getCurrentRoundStatus',
-  });
+  // State for contract data
+  const [totalAmount, setTotalAmount] = useState<bigint | null>(null);
+  const [contributionAmount, setContributionAmount] = useState<bigint | null>(null);
+  const [totalParticipants, setTotalParticipants] = useState<bigint | null>(null);
+  const [currentRound, setCurrentRound] = useState<bigint | null>(null);
+  const [roundStatusRaw, setRoundStatusRaw] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Participants
+  const [participantAddresses, setParticipantAddresses] = useState<`0x${string}`[]>([]);
+  const [participantsLoading, setParticipantsLoading] = useState(false);
+  const [participantsError, setParticipantsError] = useState<string | null>(null);
+  const [hasContributedStatuses, setHasContributedStatuses] = useState<boolean[]>([]);
+
+  // Fetch all contract data on mount or when contractAddress changes
+  useEffect(() => {
+    const fetchAll = async () => {
+      if (!contractAddress || !publicClient) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const [
+          totalAmountVal,
+          contributionAmountVal,
+          totalParticipantsVal,
+          currentRoundVal,
+          roundStatusVal
+        ] = await Promise.all([
+          fetchContractValue({ contractAddress, publicClient, roscaAbi, functionName: 'totalAmount' }),
+          fetchContractValue({ contractAddress, publicClient, roscaAbi, functionName: 'contributionAmount' }),
+          fetchContractValue({ contractAddress, publicClient, roscaAbi, functionName: 'totalParticipants' }),
+          fetchContractValue({ contractAddress, publicClient, roscaAbi, functionName: 'currentRound' }),
+          fetchRoundStatus({ contractAddress, publicClient, roscaAbi })
+        ]);
+        setTotalAmount(totalAmountVal as bigint);
+        setContributionAmount(contributionAmountVal as bigint);
+        setTotalParticipants(totalParticipantsVal as bigint);
+        setCurrentRound(currentRoundVal as bigint);
+        setRoundStatusRaw(roundStatusVal);
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch contract data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAll();
+  }, [contractAddress, publicClient]);
+
+  // Fetch participants when totalParticipants is loaded
+  useEffect(() => {
+    const fetchAndSetParticipants = async () => {
+      if (!contractAddress || typeof totalParticipants !== 'bigint' || !publicClient) return;
+      setParticipantsLoading(true);
+      setParticipantsError(null);
+      try {
+        const addresses = await fetchParticipants({
+          contractAddress,
+          totalParticipants: Number(totalParticipants),
+          publicClient,
+          roscaAbi,
+        });
+        setParticipantAddresses(addresses);
+      } catch (err: any) {
+        setParticipantsError(err.message || 'Failed to fetch participants');
+      } finally {
+        setParticipantsLoading(false);
+      }
+    };
+    fetchAndSetParticipants();
+  }, [contractAddress, totalParticipants, publicClient]);
+
+  // Fetch hasContributed for each participant
+  useEffect(() => {
+    const fetchHasContributed = async () => {
+      if (!contractAddress || !publicClient || participantAddresses.length === 0) return;
+      try {
+        const statuses = await fetchHasContributedBatch({
+          contractAddress,
+          publicClient,
+          roscaAbi,
+          addresses: participantAddresses,
+        });
+        setHasContributedStatuses(statuses);
+      } catch {
+        setHasContributedStatuses([]);
+      }
+    };
+    fetchHasContributed();
+  }, [contractAddress, publicClient, participantAddresses]);
 
   // Destructure roundStatus tuple if available
   let roundNumber, recipient, totalContributed, targetAmount, isDistributed;
@@ -56,74 +122,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ onBack, roscaInfo }) =>
     isDistributed = roundStatusRaw[4];
   }
 
-  // Custom fetcher for participants
-  const publicClient = usePublicClient();
-  const [participantAddresses, setParticipantAddresses] = useState<`0x${string}`[]>([]);
-  const [participantsLoading, setParticipantsLoading] = useState(false);
-  const [participantsError, setParticipantsError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchParticipants = async () => {
-      if (!contractAddress || typeof totalParticipants !== 'bigint') return;
-      setParticipantsLoading(true);
-      setParticipantsError(null);
-      try {
-        const count = Number(totalParticipants);
-        const addresses = await Promise.all(
-          Array.from({ length: count }, async (_, idx) => {
-            try {
-              return await publicClient.readContract({
-                address: contractAddress,
-                abi: roscaAbi,
-                functionName: 'participantList',
-                args: [BigInt(idx)],
-              });
-            } catch (err) {
-              // Skip this index if it reverts
-              return undefined;
-            }
-          })
-        );
-        setParticipantAddresses(
-          addresses.filter(
-            (x): x is `0x${string}` =>
-              typeof x === 'string' &&
-              x.startsWith('0x') &&
-              x.length === 42 &&
-              x !== '0x0000000000000000000000000000000000000000'
-          )
-        );
-      } catch (err: any) {
-        setParticipantsError(err.message || 'Failed to fetch participants');
-      } finally {
-        setParticipantsLoading(false);
-      }
-    };
-    fetchParticipants();
-  }, [contractAddress, totalParticipants, publicClient]);
-
-  // Batch fetch hasContributed for each participant
-  const hasContributedCalls = useMemo(
-    () =>
-      participantAddresses.length > 0
-        ? participantAddresses.map((addr) => ({
-            address: contractAddress,
-            abi: roscaAbi,
-            functionName: 'hasContributed',
-            args: [addr as `0x${string}`],
-          }))
-        : [],
-    [contractAddress, participantAddresses]
-  );
-  const useReadContractsAny = useReadContracts as any;
-  const { data: hasContributedStatusesResult = [], isLoading: loadingHasContributed } = useReadContractsAny({
-    contracts: hasContributedCalls,
-    allowFailure: false,
-    query: { enabled: hasContributedCalls.length > 0 && !!contractAddress },
-  });
-  const hasContributedStatuses = (hasContributedStatusesResult as unknown[]).map(
-    (x) => typeof x === 'boolean' ? x : false
-  );
+  // Participants structure
   const participants = (participantAddresses ?? []).map((addr, i) => ({
     id: i + 1,
     address: addr || '0x',
@@ -149,13 +148,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ onBack, roscaInfo }) =>
   };
 
   // Loading state
-  const isLoading =
-    loadingTotalAmount ||
-    loadingContributionAmount ||
-    loadingTotalParticipants ||
-    loadingCurrentRound ||
-    loadingRoundStatus ||
-    loadingHasContributed;
+  const isLoading = loading || participantsLoading;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
