@@ -1,14 +1,15 @@
 
 import React, { useState } from 'react';
-import { Plus, Users } from 'lucide-react';
+import { Plus, Users, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AppHeader from '@/components/AppHeader';
 import CreateRosca from '@/components/CreateRosca';
 import JoinRosca from '@/components/JoinRosca';
+import MyRoscas from '@/components/MyRoscas';
 import RoscaDashboard from '@/components/RoscaDashboard';
 import RoscaLogo from '@/components/RoscaLogo';
 
-type AppState = 'landing' | 'create' | 'join' | 'dashboard';
+type AppState = 'landing' | 'create' | 'join' | 'my-roscas' | 'dashboard';
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<AppState>('landing');
@@ -22,12 +23,18 @@ const Index = () => {
     setCurrentView('join');
   };
 
+  const handleMyRoscas = () => {
+    setCurrentView('my-roscas');
+  };
+
   const handleBack = () => {
     setCurrentView('landing');
+    setRoscaInfo(null); // Clear rosca info when going back to landing
   };
 
   const handleLogoClick = () => {
     setCurrentView('landing');
+    setRoscaInfo(null); // Clear rosca info when clicking logo
   };
 
   const handleRoscaDeployed = (params: any) => {
@@ -38,7 +45,20 @@ const Index = () => {
 
   const handleRoscaJoined = (contractAddress: string) => {
     console.log('Joined ROSCA at:', contractAddress);
+    setRoscaInfo({ contractAddress });
     setCurrentView('dashboard');
+  };
+
+  const handleViewRosca = (contractAddress: string) => {
+    console.log('Viewing ROSCA at:', contractAddress);
+    setRoscaInfo({ contractAddress });
+    setCurrentView('dashboard');
+  };
+
+  const handleWalletDisconnected = () => {
+    console.log('Wallet disconnected, returning to landing');
+    setCurrentView('landing');
+    setRoscaInfo(null);
   };
 
   const getHeaderProps = () => {
@@ -47,6 +67,8 @@ const Index = () => {
         return { showBackButton: true, onBack: handleBack, title: 'Create New ROSCA', onLogoClick: handleLogoClick };
       case 'join':
         return { showBackButton: true, onBack: handleBack, title: 'Join Existing ROSCA', onLogoClick: handleLogoClick };
+      case 'my-roscas':
+        return { showBackButton: true, onBack: handleBack, title: 'My ROSCAs', onLogoClick: handleLogoClick };
       case 'dashboard':
         return { showBackButton: true, onBack: handleBack, title: 'ROSCA Dashboard', onLogoClick: handleLogoClick };
       default:
@@ -72,11 +94,20 @@ const Index = () => {
     );
   }
 
+  if (currentView === 'my-roscas') {
+    return (
+      <div className="min-h-screen bg-background">
+        <AppHeader {...getHeaderProps()} />
+        <MyRoscas onBack={handleBack} onViewRosca={handleViewRosca} />
+      </div>
+    );
+  }
+
   if (currentView === 'dashboard') {
     return (
       <div className="min-h-screen bg-background">
         <AppHeader {...getHeaderProps()} />
-        <RoscaDashboard roscaInfo={roscaInfo} />
+        <RoscaDashboard roscaInfo={roscaInfo} onWalletDisconnected={handleWalletDisconnected} />
       </div>
     );
   }
@@ -91,6 +122,14 @@ const Index = () => {
         
         {/* Action Buttons */}
         <div className="w-full max-w-md space-y-4">
+          <Button
+            onClick={handleMyRoscas}
+            className="w-full bg-gradient-to-r from-blue-500 to-purple-400 hover:from-blue-600 hover:to-purple-500 text-white rounded-2xl py-4 text-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg"
+          >
+            <Eye className="w-5 h-5 mr-3" />
+            My ROSCAs
+          </Button>
+
           <Button
             onClick={handleCreateRosca}
             className="w-full bg-gradient-to-r from-rose-500 to-peach-400 hover:from-rose-600 hover:to-peach-500 text-white rounded-2xl py-4 text-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg"

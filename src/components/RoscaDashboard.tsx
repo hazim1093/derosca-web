@@ -12,14 +12,23 @@ import { useRoscaParticipants } from '../hooks/useRoscaParticipants';
 
 interface RoscaDashboardProps {
   roscaInfo?: any;
+  onWalletDisconnected?: () => void;
 }
 
-const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo }) => {
+const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisconnected }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const chain = localhostChain;
   const contractAddress = roscaInfo?.contractAddress;
-  const { address: userAddress } = useAccount();
+  const { address: userAddress, isConnected } = useAccount();
   const publicClient = usePublicClient();
+
+  // Monitor wallet connection and redirect when disconnected
+  useEffect(() => {
+    if (!isConnected && onWalletDisconnected) {
+      console.log('Wallet disconnected, redirecting to home...');
+      onWalletDisconnected();
+    }
+  }, [isConnected, onWalletDisconnected]);
 
   // State for contract data
   const [totalAmount, setTotalAmount] = useState<bigint | null>(null);
@@ -100,6 +109,31 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo }) => {
 
   // Loading state
   const isLoading = loading || participantsLoading;
+
+  // Show wallet disconnection warning if not connected
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4">
+        <div className="max-w-4xl mx-auto">
+          <Card className="border-0 shadow-lg">
+            <CardContent className="p-6 text-center">
+              <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl mb-4">
+                <p className="text-yellow-800 font-medium">⚠️ Wallet Disconnected</p>
+                <p className="text-yellow-700 text-sm mt-1">
+                  Please reconnect your wallet to view ROSCA details
+                </p>
+              </div>
+              {onWalletDisconnected && (
+                <Button onClick={onWalletDisconnected} variant="outline">
+                  Return to Home
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
