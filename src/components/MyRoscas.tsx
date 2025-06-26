@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Users, Eye, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Users, Eye, RefreshCw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useAccount, usePublicClient } from 'wagmi';
 import { roscaAbi } from '../lib/contracts/roscaContract';
-import { getUserRoscaContracts, cacheUserRoscas, getCachedUserRoscas } from '../lib/services/userRoscaService';
-import { getRoscaDetails } from '../lib/services/roscaService';
+import { getUserRoscaContracts, cacheUserRoscas, getCachedUserRoscas, getRoscaByAddress } from '../lib/services/userRoscaService';
 
 interface MyRoscasProps {
   onBack: () => void;
@@ -28,6 +29,9 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [contractSearch, setContractSearch] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
@@ -41,10 +45,13 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
     setError(null);
     
     try {
+      console.log('Fetching user ROSCAs...');
+      
       // Try to get cached data first
       let contracts = useCache ? getCachedUserRoscas(address) : null;
       
       if (!contracts) {
+        console.log('No cached data, fetching from blockchain...');
         // Fetch from blockchain
         const discoveredContracts = await getUserRoscaContracts({
           userAddress: address,
@@ -55,21 +62,20 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
         
         // Cache the results
         cacheUserRoscas(address, contracts);
+      } else {
+        console.log('Using cached ROSCA data');
       }
 
       // Fetch details for each contract
       const roscaDetails = await Promise.all(
         contracts.map(async (contract: any) => {
           try {
-            const details = await getRoscaDetails({
+            const details = await getRoscaByAddress({
               contractAddress: contract.contractAddress,
               publicClient,
               roscaAbi,
             });
-            return {
-              contractAddress: contract.contractAddress,
-              ...details,
-            };
+            return details;
           } catch (err) {
             console.error(`Error fetching details for ${contract.contractAddress}:`, err);
             return null;
@@ -79,12 +85,43 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
 
       // Filter out failed requests
       const validRoscas = roscaDetails.filter((rosca): rosca is UserRosca => rosca !== null);
+      console.log(`Successfully loaded ${validRoscas.length} ROSCAs`);
       setRoscas(validRoscas);
     } catch (err: any) {
+      console.error('Error in fetchUserRoscas:', err);
       setError(err.message || 'Failed to fetch your ROSCAs');
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const handleSearchByAddress = async () => {
+    if (!contractSearch.trim() || !isConnected || !publicClient) return;
+
+    setSearchLoading(true);
+    setSearchError(null);
+
+    try {
+      console.log('Searching for ROSCA by address:', contractSearch);
+      const roscaDetails = await getRoscaByAddress({
+        contractAddress: contractSearch,
+        publicClient,
+        roscaAbi,
+      });
+
+      // Check if this ROSCA is already in the list
+      const existingRosca = roscas.find(r => r.contractAddress === contractSearch);
+      if (!existingRosca) {
+        setRoscas(prev => [...prev, roscaDetails]);
+      }
+
+      setContractSearch('');
+    } catch (err: any) {
+      console.error('Error searching ROSCA by address:', err);
+      setSearchError('Failed to find ROSCA at this address. Please check the address.');
+    } finally {
+      setSearchLoading(false);
     }
   };
 
@@ -134,6 +171,44 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
           <p className="text-muted-foreground">ROSCAs you've joined with this wallet</p>
         </div>
 
+        {/* Search by Contract Address */}
+        <Card className="border-0 shadow-lg mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold text-gray-900">
+              Search by Contract Address
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">Add a ROSCA by entering its contract address</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="contract-search" className="text-sm font-medium text-foreground">
+                Contract Address
+              </Label>
+              <div className="flex space-x-2">
+                <Input
+                  id="contract-search"
+                  placeholder="0x..."
+                  value={contractSearch}
+                  onChange={(e) => setContractSearch(e.target.value)}
+                  className="flex-1 rounded-xl border-rose-200 focus:border-rose-400"
+                />
+                <Button
+                  onClick={handleSearchByAddress}
+                  disabled={!contractSearch.trim() || searchLoading}
+                  className="bg-gradient-to-r from-rose-500 to-peach-400 hover:from-rose-600 hover:to-peach-500 text-white rounded-xl"
+                >
+                  <Search className="w-4 h-4" />
+                </Button>
+              </div>
+              {searchError && (
+                <div className="bg-red-100 border border-red-300 p-3 rounded-xl mt-2 flex items-center gap-2 shadow-sm">
+                  <span className="text-red-700 text-sm font-medium">{searchError}</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {loading ? (
           <div className="text-center py-12">
             <div className="text-lg text-gray-500">Discovering your ROSCAs...</div>
@@ -153,7 +228,7 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
               <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No ROSCAs Found</h3>
               <p className="text-muted-foreground mb-4">
-                You haven't joined any ROSCAs with this wallet yet.
+                You haven't joined any ROSCAs with this wallet yet, or try searching by contract address above.
               </p>
               <Button onClick={onBack} variant="outline">
                 <ArrowLeft className="w-4 h-4 mr-2" />

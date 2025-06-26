@@ -12,6 +12,8 @@ export async function getUserRoscaContracts({
   roscaAbi: Abi;
 }): Promise<{ contractAddress: string; blockNumber: bigint }[]> {
   try {
+    console.log('Searching for ROSCAs for user:', userAddress);
+    
     // Query ParticipantRegistered events where the user is the participant
     const logs = await publicClient.getLogs({
       event: {
@@ -28,6 +30,8 @@ export async function getUserRoscaContracts({
       toBlock: 'latest',
     });
 
+    console.log(`Found ${logs.length} ParticipantRegistered events for user`);
+
     // Extract unique contract addresses
     const contracts = logs.map((log) => ({
       contractAddress: log.address,
@@ -40,10 +44,44 @@ export async function getUserRoscaContracts({
         index === self.findIndex((c) => c.contractAddress === contract.contractAddress)
     );
 
+    console.log(`Found ${uniqueContracts.length} unique ROSCA contracts for user`);
     return uniqueContracts;
   } catch (error) {
     console.error('Error fetching user ROSCA contracts:', error);
     return [];
+  }
+}
+
+// Get ROSCA details by contract address
+export async function getRoscaByAddress({
+  contractAddress,
+  publicClient,
+  roscaAbi,
+}: {
+  contractAddress: string;
+  publicClient: any;
+  roscaAbi: Abi;
+}): Promise<any> {
+  try {
+    console.log('Fetching ROSCA details for address:', contractAddress);
+    
+    // Import getRoscaDetails from roscaService
+    const { getRoscaDetails } = await import('./roscaService');
+    
+    const details = await getRoscaDetails({
+      contractAddress,
+      publicClient,
+      roscaAbi,
+    });
+
+    console.log('Successfully fetched ROSCA details:', details);
+    return {
+      contractAddress,
+      ...details,
+    };
+  } catch (error) {
+    console.error('Error fetching ROSCA by address:', error);
+    throw error;
   }
 }
 
