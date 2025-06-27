@@ -143,3 +143,128 @@ export async function getRoscaDetails({ contractAddress, publicClient, roscaAbi 
     status,
   };
 }
+
+// Extract a user-friendly revert reason from an error object
+export function extractRevertReason(err: any): string {
+  // Handle viem/ethers style error objects
+  if (err?.cause?.reason) {
+    return err.cause.reason;
+  }
+  // Handle JSON-RPC error with nested data
+  if (err?.data?.message) {
+    const match = err.data.message.match(/reverted with reason string '([^']+)'/);
+    if (match && match[1]) {
+      return match[1];
+    } else {
+      return err.data.message;
+    }
+  }
+  // Handle JSON-RPC error with nested data.error.message
+  if (err?.data?.error?.message) {
+    const match = err.data.error.message.match(/reverted with reason string '([^']+)'/);
+    if (match && match[1]) {
+      return match[1];
+    } else {
+      return err.data.error.message;
+    }
+  }
+  // Handle top-level message
+  if (err?.message) {
+    const match = err.message.match(/reverted with reason string '([^']+)'/);
+    if (match && match[1]) {
+      return match[1];
+    } else {
+      return err.message;
+    }
+  }
+  if (typeof err === 'string') {
+    return err;
+  }
+  return 'Transaction failed.';
+}
+
+// Common utility: simulate then send contract transaction
+export async function simulateAndSend({
+  publicClient,
+  walletClient,
+  contractAddress,
+  abi,
+  functionName,
+  args = [],
+  value,
+  chain,
+}: {
+  publicClient: any,
+  walletClient: any,
+  contractAddress: string,
+  abi: any,
+  functionName: string,
+  args?: any[],
+  value?: bigint,
+  chain: any,
+}): Promise<{ success: true; hash: string } | { success: false; error: string }> {
+  try {
+    const [account] = await walletClient.getAddresses();
+    // 1. Simulate
+    try {
+      await publicClient.simulateContract({
+        address: contractAddress as `0x${string}`,
+        abi,
+        functionName,
+        args,
+        value,
+        account,
+      });
+    } catch (simErr: any) {
+      return { success: false, error: extractRevertReason(simErr) };
+    }
+    // 2. Send
+    const hash = await walletClient.writeContract({
+      account,
+      address: contractAddress as `0x${string}`,
+      abi,
+      functionName,
+      args,
+      value,
+      chain,
+    });
+    return { success: true, hash };
+  } catch (err: any) {
+    return { success: false, error: extractRevertReason(err) };
+  }
+}
+
+// Contribute to a ROSCA contract and extract user-friendly error
+export async function contributeToRosca({
+  walletClient,
+  publicClient,
+  contractAddress,
+  contributionAmount,
+  roscaAbi,
+  chain
+}: {
+  walletClient: any;
+  publicClient: any;
+  contractAddress: string;
+  contributionAmount: number | string;
+  roscaAbi: any;
+  chain: any;
+}): Promise<{ success: true } | { success: false; error: string }> {
+  const value = BigInt(Math.floor(Number(contributionAmount) * 1e18));
+  const result = await simulateAndSend({
+    publicClient,
+    walletClient,
+    contractAddress,
+    abi: roscaAbi,
+    functionName: 'contribute',
+    value,
+    chain,
+  });
+  if (result.success) {
+    return { success: true };
+  } else if (result.success === false) {
+    return { success: false, error: result.error };
+  } else {
+    return { success: false, error: 'Unknown error' };
+  }
+}

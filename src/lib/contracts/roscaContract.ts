@@ -486,3 +486,47 @@ export const useJoinRosca = () => {
 
   return { joinRosca };
 };
+
+// React hook for contributing to a ROSCA contract
+export const useContributeRosca = () => {
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
+
+  /**
+   * Contribute to a ROSCA contract by calling contribute (payable)
+   * @param contractAddress The address of the deployed ROSCA contract
+   * @param contributionAmount The amount to contribute (in ETH, as number or string)
+   * @returns Transaction hash
+   */
+  const contributeRosca = async (
+    contractAddress: string,
+    contributionAmount: number | string
+  ): Promise<string> => {
+    if (!walletClient) {
+      throw new Error('Wallet not connected');
+    }
+    if (!publicClient) {
+      throw new Error('No public client');
+    }
+    const [account] = await walletClient.getAddresses();
+    const value = parseEther(contributionAmount.toString());
+    try {
+      const hash = await walletClient.writeContract({
+        account,
+        address: contractAddress as `0x${string}`,
+        abi: roscaAbi,
+        functionName: 'contribute',
+        value,
+        chain: localhostChain,
+      });
+      // Wait for transaction confirmation
+      await publicClient.waitForTransactionReceipt({ hash });
+      return hash;
+    } catch (error) {
+      console.error('Error contributing to ROSCA:', error);
+      throw error;
+    }
+  };
+
+  return { contributeRosca };
+};

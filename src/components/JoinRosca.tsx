@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { roscaAbi, useJoinRosca } from '../lib/contracts/roscaContract';
-import { getRoscaDetails } from '../lib/services/roscaService';
+import { getRoscaDetails, extractRevertReason } from '../lib/services/roscaService';
 
 interface JoinRoscaProps {
   onJoin: (contractAddress: string) => void;
@@ -69,23 +69,7 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
           value,
         });
       } catch (simErr: any) {
-        // Extract revert reason from simulation error
-        let reason = '';
-        if (simErr?.cause?.reason) {
-          reason = simErr.cause.reason;
-        } else if (simErr?.message) {
-          const match = simErr.message.match(/reverted with reason string '([^']+)'/);
-          if (match && match[1]) {
-            reason = match[1];
-          } else {
-            reason = simErr.message;
-          }
-        } else if (typeof simErr === 'string') {
-          reason = simErr;
-        } else {
-          reason = 'Unknown error.';
-        }
-        setFetchError(`Failed to join ROSCA: ${reason}`);
+        setFetchError(`Failed to join ROSCA: ${extractRevertReason(simErr)}`);
         setIsJoining(false);
         return;
       }
@@ -94,24 +78,7 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
       toast.success('Successfully joined the ROSCA!');
       onJoin(contractAddress);
     } catch (err: any) {
-      // Try to extract a clear error reason from the error object
-      let reason = '';
-      if (err?.cause?.reason) {
-        reason = err.cause.reason;
-      } else if (err?.message) {
-        // Try to extract revert reason from message
-        const match = err.message.match(/reverted with reason string '([^']+)'/);
-        if (match && match[1]) {
-          reason = match[1];
-        } else {
-          reason = err.message;
-        }
-      } else if (typeof err === 'string') {
-        reason = err;
-      } else {
-        reason = 'Unknown error.';
-      }
-      setFetchError(`Failed to join ROSCA: ${reason}`);
+      setFetchError(`Failed to join ROSCA: ${extractRevertReason(err)}`);
       setRoscaDetails(roscaDetails); // keep details so user can try again
     } finally {
       setIsJoining(false);

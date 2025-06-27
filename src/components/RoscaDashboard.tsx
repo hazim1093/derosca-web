@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { localhostChain } from '@/lib/wagmi';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { useAccount, usePublicClient } from 'wagmi';
-import { roscaAbi } from '../lib/contracts/roscaContract';
-import { fetchContractValue, fetchRoundStatus } from '../lib/services/roscaService';
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
+import { roscaAbi, useContributeRosca } from '../lib/contracts/roscaContract';
+import { fetchContractValue, fetchRoundStatus, contributeToRosca } from '../lib/services/roscaService';
 import { useRoscaParticipants } from '../hooks/useRoscaParticipants';
+import { toast } from 'sonner';
 
 interface RoscaDashboardProps {
   roscaInfo?: any;
@@ -20,6 +21,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
   const chain = localhostChain;
   const contractAddress = roscaInfo?.contractAddress;
   const { address: userAddress, isConnected } = useAccount();
+  const walletClient = useWalletClient().data;
   const publicClient = usePublicClient();
 
   // Monitor wallet connection and redirect when disconnected
@@ -109,6 +111,34 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
 
   // Loading state
   const isLoading = loading || participantsLoading;
+
+  // Use new useContributeRosca hook
+  const { contributeRosca } = useContributeRosca();
+  const [isSubmittingContribution, setIsSubmittingContribution] = useState(false);
+  const [contributionError, setContributionError] = useState<string | null>(null);
+  const handleSubmitContribution = async () => {
+    if (!isConnected || !contractAddress || !contributionAmount || !walletClient || !publicClient) {
+      setContributionError('Missing wallet connection or contract info.');
+      return;
+    }
+    setIsSubmittingContribution(true);
+    setContributionError(null);
+    const result = await contributeToRosca({
+      walletClient,
+      publicClient,
+      contractAddress,
+      contributionAmount: Number(contributionAmount) / 1e18,
+      roscaAbi,
+      chain,
+    });
+    if (result.success) {
+      toast.success('Contribution submitted successfully!');
+      // Optionally, refresh contract data here
+    } else if (result.success === false) {
+      setContributionError(result.error);
+    }
+    setIsSubmittingContribution(false);
+  };
 
   // Show wallet disconnection warning if not connected
   if (!isConnected) {
@@ -379,9 +409,16 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
                       <p className="text-green-900 font-medium mb-2">Ready to contribute?</p>
                       <p className="text-green-700">Amount: {contributionAmount ? Number(contributionAmount) / 1e18 : 0} ETH</p>
                     </div>
-                    <Button className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white rounded-xl px-8 py-3">
-                      Submit Contribution
+                    <Button
+                      onClick={handleSubmitContribution}
+                      disabled={isSubmittingContribution || !isConnected}
+                      className="bg-gradient-to-r from-rose-500 to-peach-400 hover:from-rose-600 hover:to-peach-500 text-white rounded-xl px-8 py-3 font-medium transition-all duration-200"
+                    >
+                      {isSubmittingContribution ? 'Submitting...' : 'Submit Contribution'}
                     </Button>
+                    {contributionError && (
+                      <div className="mt-4 text-red-600 text-sm font-medium">{contributionError}</div>
+                    )}
                   </div>
                 )}
 
