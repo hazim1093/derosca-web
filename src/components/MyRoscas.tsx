@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Users, Eye, RefreshCw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAccount, usePublicClient } from 'wagmi';
-import { roscaAbi } from '../lib/contracts/roscaContract';
+import { roscaAbi } from '../lib/contracts/rosca.artifacts';
 import { getUserRoscaContracts, cacheUserRoscas, getCachedUserRoscas, getRoscaByAddress } from '../lib/services/userRoscaService';
 
 interface MyRoscasProps {
@@ -46,10 +45,10 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
     
     try {
       console.log('Fetching user ROSCAs...');
-      
+
       // Try to get cached data first
       let contracts = useCache ? getCachedUserRoscas(address) : null;
-      
+
       if (!contracts) {
         console.log('No cached data, fetching from blockchain...');
         // Fetch from blockchain
@@ -59,7 +58,7 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
           roscaAbi,
         });
         contracts = discoveredContracts;
-        
+
         // Cache the results
         cacheUserRoscas(address, contracts);
       } else {
@@ -245,11 +244,11 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
                     <CardTitle className="text-lg font-bold text-gray-900">
                       ROSCA Contract
                     </CardTitle>
-                    <Badge 
-                      variant="secondary" 
+                    <Badge
+                      variant="secondary"
                       className={
-                        rosca.status === 'Active' 
-                          ? 'bg-green-100 text-green-800' 
+                        rosca.status === 'Active'
+                          ? 'bg-green-100 text-green-800'
                           : rosca.status === 'Full'
                           ? 'bg-blue-100 text-blue-800'
                           : 'bg-gray-100 text-gray-800'
@@ -283,7 +282,7 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
                       <p className="font-bold text-rose-600 capitalize">{rosca.status}</p>
                     </div>
                   </div>
-                  <Button 
+                  <Button
                     onClick={() => onViewRosca(rosca.contractAddress)}
                     className="w-full bg-gradient-to-r from-rose-500 to-peach-400 hover:from-rose-600 hover:to-peach-500 text-white"
                   >

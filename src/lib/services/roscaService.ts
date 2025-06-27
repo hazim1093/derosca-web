@@ -1,4 +1,5 @@
 import { Abi } from 'viem';
+import { roscaAbi, roscaBytecode } from '../contracts/rosca.artifacts';
 
 // Fetch all participants addresses
 export async function fetchParticipants({

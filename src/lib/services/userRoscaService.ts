@@ -1,5 +1,5 @@
-
 import { Abi } from 'viem';
+import { roscaAbi, roscaBytecode } from '../contracts/rosca.artifacts';
 
 // Discover ROSCAs that the user has joined by querying ParticipantRegistered events
 export async function getUserRoscaContracts({
@@ -13,7 +13,7 @@ export async function getUserRoscaContracts({
 }): Promise<{ contractAddress: string; blockNumber: bigint }[]> {
   try {
     console.log('Searching for ROSCAs for user:', userAddress);
-    
+
     // Query ParticipantRegistered events where the user is the participant
     const logs = await publicClient.getLogs({
       event: {
@@ -64,10 +64,10 @@ export async function getRoscaByAddress({
 }): Promise<any> {
   try {
     console.log('Fetching ROSCA details for address:', contractAddress);
-    
+
     // Import getRoscaDetails from roscaService
     const { getRoscaDetails } = await import('./roscaService');
-    
+
     const details = await getRoscaDetails({
       contractAddress,
       publicClient,
@@ -99,9 +99,9 @@ export function cacheUserRoscas(userAddress: string, contracts: any[]) {
 export function getCachedUserRoscas(userAddress: string): any[] | null {
   const cacheKey = `rosca_contracts_${userAddress}`;
   const cached = localStorage.getItem(cacheKey);
-  
+
   if (!cached) return null;
-  
+
   try {
     const { contracts, timestamp } = JSON.parse(cached);
     // Cache is valid for 5 minutes
@@ -111,6 +111,6 @@ export function getCachedUserRoscas(userAddress: string): any[] | null {
   } catch (error) {
     console.error('Error parsing cached ROSCAs:', error);
   }
-  
+
   return null;
 }

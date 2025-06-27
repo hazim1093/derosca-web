@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { fetchParticipants, fetchHasContributedBatch } from '../lib/services/roscaService';
-import { roscaAbi } from '../lib/contracts/roscaContract';
+import { roscaAbi } from '../lib/contracts/rosca.artifacts';
 
 interface UseRoscaParticipantsParams {
   contractAddress: string;
