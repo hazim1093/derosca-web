@@ -8,7 +8,8 @@ import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/comp
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { roscaAbi } from '../lib/contracts/rosca.artifacts';
 import { useContributeRosca } from '../lib/contracts/roscaContract';
-import { fetchContractValue, fetchRoundStatus, contributeToRosca } from '../lib/services/roscaService';
+import { fetchContractValue, fetchRoundStatus, contributeToRosca, claimDistributionToRosca, getRoscaDetails, isUserTurn, getRoscaUserActionMessage } from '../lib/services/roscaService';
+import { shortenAddress } from '../lib/utils';
 import { useRoscaParticipants } from '../hooks/useRoscaParticipants';
 import { toast } from 'sonner';
 
@@ -18,7 +19,7 @@ interface RoscaDashboardProps {
 }
 
 const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisconnected }) => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('status');
   const chain = localhostChain;
   const contractAddress = roscaInfo?.contractAddress;
   const { address: userAddress, isConnected } = useAccount();
@@ -41,46 +42,45 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
   const [roundStatusRaw, setRoundStatusRaw] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [roscaStatus, setRoscaStatus] = useState<string>('Active');
 
   // Fetch all contract data on mount or when contractAddress changes
+  const fetchAll = async () => {
+    if (!contractAddress || !publicClient) return;
+    setLoading(true);
+    setError(null);
+    try {
+      // Fetch backend status and details
+      const details = await getRoscaDetails({ contractAddress, publicClient, roscaAbi });
+      setTotalAmount(BigInt(Math.floor(details.totalAmount * 1e18)));
+      setContributionAmount(BigInt(Math.floor(details.contributionAmount * 1e18)));
+      setTotalParticipants(BigInt(details.participants));
+      // Fetch currentRound and roundStatusRaw for rest of UI
+      const [currentRoundVal, roundStatusVal] = await Promise.all([
+        fetchContractValue({ contractAddress, publicClient, roscaAbi, functionName: 'currentRound' }),
+        fetchRoundStatus({ contractAddress, publicClient, roscaAbi })
+      ]);
+      setCurrentRound(currentRoundVal as bigint);
+      setRoundStatusRaw(roundStatusVal);
+      setRoscaStatus(details.status);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch contract data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchAll = async () => {
-      if (!contractAddress || !publicClient) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const [
-          totalAmountVal,
-          contributionAmountVal,
-          totalParticipantsVal,
-          currentRoundVal,
-          roundStatusVal
-        ] = await Promise.all([
-          fetchContractValue({ contractAddress, publicClient, roscaAbi, functionName: 'totalAmount' }),
-          fetchContractValue({ contractAddress, publicClient, roscaAbi, functionName: 'contributionAmount' }),
-          fetchContractValue({ contractAddress, publicClient, roscaAbi, functionName: 'totalParticipants' }),
-          fetchContractValue({ contractAddress, publicClient, roscaAbi, functionName: 'currentRound' }),
-          fetchRoundStatus({ contractAddress, publicClient, roscaAbi })
-        ]);
-        setTotalAmount(totalAmountVal as bigint);
-        setContributionAmount(contributionAmountVal as bigint);
-        setTotalParticipants(totalParticipantsVal as bigint);
-        setCurrentRound(currentRoundVal as bigint);
-        setRoundStatusRaw(roundStatusVal);
-      } catch (err: any) {
-        setError(err.message || 'Failed to fetch contract data');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchAll();
   }, [contractAddress, publicClient]);
 
   // Use custom hook for participants
+  const [participantsRefreshKey, setParticipantsRefreshKey] = useState(0);
   const { participants, loading: participantsLoading, error: participantsError } = useRoscaParticipants({
     contractAddress,
     totalParticipants,
     publicClient,
+    refreshKey: participantsRefreshKey,
   });
 
   // Destructure roundStatus tuple if available
@@ -94,12 +94,16 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
   }
 
   // Determine myTurn
-  let myTurn = false;
-  let nextTurn = undefined;
-  if (recipient && userAddress) {
-    myTurn = (recipient.toLowerCase() === userAddress.toLowerCase());
-    nextTurn = roundNumber ? Number(roundNumber) + 1 : undefined;
-  }
+  const myTurn = isUserTurn(recipient, userAddress);
+
+  // Compute hasContributed for the current user
+  const currentUserParticipant = participants.find(
+    (p) =>
+      typeof p.address === 'string' &&
+      typeof userAddress === 'string' &&
+      p.address.toLowerCase() === userAddress.toLowerCase()
+  );
+  const hasContributed = currentUserParticipant?.status === 'paid';
 
   // Helper to get block explorer URL
   const getExplorerUrl = (address: string) => {
@@ -134,11 +138,58 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
     });
     if (result.success) {
       toast.success('Contribution submitted successfully!');
-      // Optionally, refresh contract data here
+      await fetchAll();
+      setParticipantsRefreshKey((k) => k + 1);
     } else if (result.success === false) {
       setContributionError(result.error);
     }
     setIsSubmittingContribution(false);
+  };
+
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const handleClaimDistribution = async () => {
+    if (!isConnected || !contractAddress || !walletClient || !publicClient) {
+      setClaimError('Missing wallet connection or contract info.');
+      return;
+    }
+    setIsClaiming(true);
+    setClaimError(null);
+    try {
+      // Debug: log balances before
+      const contractBalanceBefore = await publicClient.getBalance({ address: contractAddress });
+      const userBalanceBefore = await publicClient.getBalance({ address: userAddress });
+      console.log('Contract balance before:', Number(contractBalanceBefore) / 1e18, 'ETH');
+      console.log('User balance before:', Number(userBalanceBefore) / 1e18, 'ETH');
+
+      const result = await claimDistributionToRosca({
+        walletClient,
+        publicClient,
+        contractAddress,
+        roscaAbi,
+        chain,
+      });
+      if (result.success) {
+        toast.success('Distribution claimed successfully!');
+        await fetchAll();
+        setParticipantsRefreshKey((k) => k + 1);
+        // Wait for transaction receipt (assume last tx hash is available from walletClient)
+        // If you want to get the hash, you may need to update claimDistributionToRosca to return it
+        // For now, just refetch balances
+      } else if (result.success === false) {
+        setClaimError(result.error);
+      }
+
+      // Debug: log balances after
+      const contractBalanceAfter = await publicClient.getBalance({ address: contractAddress });
+      const userBalanceAfter = await publicClient.getBalance({ address: userAddress });
+      console.log('Contract balance after:', Number(contractBalanceAfter) / 1e18, 'ETH');
+      console.log('User balance after:', Number(userBalanceAfter) / 1e18, 'ETH');
+      // Optionally, fetch and log transaction receipt if you have the hash
+    } catch (err) {
+      setClaimError('Error during claim: ' + (err instanceof Error ? err.message : String(err)));
+    }
+    setIsClaiming(false);
   };
 
   // Show wallet disconnection warning if not connected
@@ -171,8 +222,17 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div></div> {/* Empty div to maintain layout */}
-          <Badge variant="secondary" className="bg-green-100 text-green-800">
-            Active ROSCA
+          <Badge
+            variant="secondary"
+            className={
+              roscaStatus === 'Completed'
+                ? 'bg-gray-100 text-gray-800'
+                : roscaStatus === 'Distributed'
+                ? 'bg-blue-100 text-blue-800'
+                : 'bg-green-100 text-green-800'
+            }
+          >
+            {roscaStatus} ROSCA
           </Badge>
         </div>
 
@@ -285,7 +345,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Round</p>
-                      <p className="text-2xl font-bold text-gray-900">{currentRound?.toString() ?? 0}/{totalParticipants?.toString() ?? 0}</p>
+                      <p className="text-2xl font-bold text-gray-900">{(currentRound ? Number(currentRound) + 1 : 1)}/{totalParticipants?.toString() ?? 0}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -319,6 +379,8 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
                 onClick={() => setActiveTab('contribute')}
                 variant={activeTab === 'contribute' ? 'default' : 'outline'}
                 className="rounded-xl"
+                disabled={roscaStatus === 'Completed'}
+                style={roscaStatus === 'Completed' ? { opacity: 0.5, pointerEvents: 'none' } : {}}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Make Contribution
@@ -327,6 +389,8 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
                 onClick={() => setActiveTab('claim')}
                 variant={activeTab === 'claim' ? 'default' : 'outline'}
                 className="rounded-xl"
+                disabled={roscaStatus === 'Completed'}
+                style={roscaStatus === 'Completed' ? { opacity: 0.5, pointerEvents: 'none' } : {}}
               >
                 <Gift className="w-4 h-4 mr-2" />
                 Claim Distribution
@@ -353,22 +417,33 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
               <CardContent>
                 {activeTab === 'status' && roundStatusRaw && (
                   <div className="space-y-4">
+                    {/* Completion or Action Note */}
+                    {roscaStatus === 'Completed' ? (
+                      <div className="bg-green-50 border border-green-200 p-6 rounded-xl">
+                        <p className="text-green-900 font-medium text-lg mb-2">🎉 ROSCA Completed Successfully!</p>
+                        <p className="text-green-700">All rounds have been completed and distributions have been made.</p>
+                      </div>
+                    ) : (
+                      <div className="bg-blue-50 border border-blue-200 p-6 rounded-xl">
+                        <p className="text-blue-900 font-medium">
+                          {getRoscaUserActionMessage({ myTurn, isDistributed, hasContributed })}
+                        </p>
+                      </div>
+                    )}
+                    {/* Current Round label */}
+                    <div className="text-lg font-medium text-gray-700 mb-1">Current Round</div>
+                    {/* Only Distributed and Recipient fields in one row */}
                     <div className="grid md:grid-cols-2 gap-4">
-                      <div className="bg-gray-50 p-4 rounded-xl">
-                        <p className="text-sm text-gray-600 mb-1">Current Round</p>
-                        <p className="text-lg font-bold text-gray-900">{roundNumber?.toString() ?? ''}</p>
+                      <div className="bg-gray-50 p-4 rounded-xl flex flex-col justify-center">
+                        <p className="text-sm text-gray-600 mb-1">Distributed</p>
+                        <p className="text-lg font-bold text-gray-900">{isDistributed ? 'Yes' : 'No'}</p>
                       </div>
-                      <div className="bg-gray-50 p-4 rounded-xl">
+                      <div className="bg-gray-50 p-4 rounded-xl flex flex-col justify-center">
                         <p className="text-sm text-gray-600 mb-1">Recipient</p>
-                        <p className="text-lg font-bold text-gray-900">{recipient}</p>
+                        <p className="text-lg font-bold text-gray-900">
+                          {shortenAddress(recipient)}
+                        </p>
                       </div>
-                    </div>
-                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl">
-                      <p className="text-blue-900 font-medium">
-                        {myTurn
-                          ? "It's your turn to receive the distribution!"
-                          : `Participant ${nextTurn} is next to receive the distribution.`}
-                      </p>
                     </div>
                   </div>
                 )}
@@ -387,7 +462,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
                           <div>
                             <p className="font-medium text-gray-900">
                               {typeof participant.address === 'string' && participant.address.length === 42
-                                ? `${participant.address.slice(0, 6)}...${participant.address.slice(-4)}`
+                                ? participant.address
                                 : ''}
                             </p>
                             <p className="text-sm text-gray-600">Turn: {participant.turn}</p>
@@ -412,10 +487,10 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
                     </div>
                     <Button
                       onClick={handleSubmitContribution}
-                      disabled={isSubmittingContribution || !isConnected}
+                      disabled={isSubmittingContribution || !isConnected || roscaStatus === 'Completed'}
                       className="bg-gradient-to-r from-rose-500 to-peach-400 hover:from-rose-600 hover:to-peach-500 text-white rounded-xl px-8 py-3 font-medium transition-all duration-200"
                     >
-                      {isSubmittingContribution ? 'Submitting...' : 'Submit Contribution'}
+                      {roscaStatus === 'Completed' ? 'ROSCA Completed' : isSubmittingContribution ? 'Submitting...' : 'Submit Contribution'}
                     </Button>
                     {contributionError && (
                       <div className="mt-4 text-red-600 text-sm font-medium">{contributionError}</div>
@@ -431,9 +506,16 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
                           <p className="text-purple-900 font-medium mb-2">Distribution Available!</p>
                           <p className="text-purple-700">Amount: {totalAmount ? Number(totalAmount) / 1e18 : 0} ETH</p>
                         </div>
-                        <Button className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white rounded-xl px-8 py-3">
-                          Claim Distribution
+                        <Button
+                          onClick={handleClaimDistribution}
+                          disabled={isClaiming || !isConnected || roscaStatus === 'Completed'}
+                          className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white rounded-xl px-8 py-3"
+                        >
+                          {roscaStatus === 'Completed' ? 'ROSCA Completed' : isClaiming ? 'Claiming...' : 'Claim Distribution'}
                         </Button>
+                        {claimError && (
+                          <div className="mt-4 text-red-600 text-sm font-medium">{claimError}</div>
+                        )}
                       </div>
                     ) : (
                       <div className="bg-gray-50 border border-gray-200 p-6 rounded-xl">

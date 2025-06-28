@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { fetchParticipants, fetchHasContributedBatch } from '../lib/services/roscaService';
 import { roscaAbi } from '../lib/contracts/rosca.artifacts';
 
-interface UseRoscaParticipantsParams {
-  contractAddress: string;
-  totalParticipants: bigint | null;
-  publicClient: any;
+export interface UseRoscaParticipantsParams {
+  contractAddress?: string;
+  totalParticipants?: bigint | null;
+  publicClient?: any;
+  refreshKey?: number;
 }
 
-export function useRoscaParticipants({ contractAddress, totalParticipants, publicClient }: UseRoscaParticipantsParams) {
+export function useRoscaParticipants({ contractAddress, totalParticipants, publicClient, refreshKey }: UseRoscaParticipantsParams) {
   const [participants, setParticipants] = useState<{
     id: number;
     address: `0x${string}`;
@@ -51,7 +52,7 @@ export function useRoscaParticipants({ contractAddress, totalParticipants, publi
       }
     };
     fetchAll();
-  }, [contractAddress, totalParticipants, publicClient]);
+  }, [contractAddress, totalParticipants, publicClient, refreshKey]);
 
   return { participants, loading, error };
 }

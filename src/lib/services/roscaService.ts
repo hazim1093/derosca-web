@@ -91,7 +91,7 @@ export async function fetchHasContributedBatch({
 // Fetch all ROSCA details and compute status for the JoinRosca UI
 export async function getRoscaDetails({ contractAddress, publicClient, roscaAbi }) {
   // Fetch contract values
-  const [totalAmount, contributionAmount, totalParticipants] = await Promise.all([
+  const [totalAmount, contributionAmount, totalParticipants, currentRound] = await Promise.all([
     fetchContractValue({
       contractAddress,
       publicClient,
@@ -110,6 +110,12 @@ export async function getRoscaDetails({ contractAddress, publicClient, roscaAbi 
       roscaAbi,
       functionName: 'totalParticipants',
     }),
+    fetchContractValue({
+      contractAddress,
+      publicClient,
+      roscaAbi,
+      functionName: 'currentRound',
+    }),
   ]);
 
   // Fetch current participants
@@ -127,13 +133,32 @@ export async function getRoscaDetails({ contractAddress, publicClient, roscaAbi 
     roscaAbi,
   });
 
+  // Check if the last round is distributed
+  let isComplete = false;
+  if (Number(totalParticipants) > 0) {
+    try {
+      const lastRound = await publicClient.readContract({
+        address: contractAddress,
+        abi: roscaAbi,
+        functionName: 'rounds',
+        args: [BigInt(Number(totalParticipants) - 1)],
+      });
+      if (lastRound && lastRound[1] === true) {
+        isComplete = true;
+      }
+    } catch (e) {
+      // fallback: not complete
+    }
+  }
+
   // Compute a user-friendly status string
   let status = 'Active';
-  if (participants.length >= Number(totalParticipants)) {
-    status = 'Full';
-  }
-  if (roundStatus.isDistributed) {
+  if (isComplete) {
+    status = 'Completed';
+  } else if (roundStatus.isDistributed) {
     status = 'Distributed';
+  } else if (participants.length >= Number(totalParticipants)) {
+    status = 'Full';
   }
 
   return {
@@ -267,5 +292,71 @@ export async function contributeToRosca({
     return { success: false, error: result.error };
   } else {
     return { success: false, error: 'Unknown error' };
+  }
+}
+
+// Claim distribution from a ROSCA contract
+export async function claimDistributionToRosca({
+  walletClient,
+  publicClient,
+  contractAddress,
+  roscaAbi,
+  chain
+}: {
+  walletClient: any;
+  publicClient: any;
+  contractAddress: string;
+  roscaAbi: any;
+  chain: any;
+}): Promise<{ success: true } | { success: false; error: string }> {
+  const result = await simulateAndSend({
+    publicClient,
+    walletClient,
+    contractAddress,
+    abi: roscaAbi,
+    functionName: 'distributePool',
+    chain,
+  });
+  if (result.success) {
+    return { success: true };
+  } else if (result.success === false) {
+    return { success: false, error: result.error };
+  } else {
+    return { success: false, error: 'Unknown error' };
+  }
+}
+
+export function isUserTurn(recipient: string, userAddress: string): boolean {
+  return (
+    typeof recipient === 'string' &&
+    typeof userAddress === 'string' &&
+    recipient.toLowerCase() === userAddress.toLowerCase()
+  );
+}
+
+export function getRoscaUserActionMessage({
+  myTurn,
+  isDistributed,
+  hasContributed,
+}: {
+  myTurn: boolean;
+  isDistributed: boolean;
+  hasContributed: boolean;
+}): string {
+  if (isDistributed) {
+    return "This round has been distributed. Wait for the next round.";
+  }
+  if (myTurn) {
+    if (!hasContributed) {
+      return "Please make your contribution for this round.";
+    } else {
+      return "It's your turn to claim the distribution!";
+    }
+  } else {
+    if (!hasContributed) {
+      return "Please make your contribution for this round.";
+    } else {
+      return "Waiting for other participants to contribute.";
+    }
   }
 }

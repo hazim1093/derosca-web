@@ -170,16 +170,28 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
                     </span>
                   </div>
                 </div>
+                {roscaDetails.status === 'Completed' && (
+                  <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-xl mt-3">
+                    <p className="text-yellow-700 text-sm">
+                      ⚠️ This ROSCA has been completed. All rounds have finished and distributions have been made.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
             {roscaDetails && (
               <Button
                 onClick={handleJoin}
-                disabled={!isConnected || isJoining}
-                className="w-full bg-gradient-to-r from-peach-400 to-rose-500 hover:from-peach-500 hover:to-rose-600 text-white rounded-xl py-3 font-medium transition-all duration-200"
+                disabled={!isConnected || isJoining || roscaDetails.status === 'Completed'}
+                className="w-full bg-gradient-to-r from-peach-400 to-rose-500 hover:from-peach-500 hover:to-rose-600 text-white rounded-xl py-3 font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isJoining ? 'Joining...' : `Register + Contribute ${roscaDetails.contributionAmount} ETH`}
+                {roscaDetails.status === 'Completed'
+                  ? 'ROSCA Completed - Cannot Join'
+                  : isJoining
+                    ? 'Joining...'
+                    : `Register + Contribute ${roscaDetails.contributionAmount} ETH`
+                }
               </Button>
             )}
           </CardContent>

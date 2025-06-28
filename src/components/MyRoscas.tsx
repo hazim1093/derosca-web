@@ -42,7 +42,7 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
     }
 
     setError(null);
-    
+
     try {
       console.log('Fetching user ROSCAs...');
 
@@ -251,6 +251,10 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
                           ? 'bg-green-100 text-green-800'
                           : rosca.status === 'Full'
                           ? 'bg-blue-100 text-blue-800'
+                          : rosca.status === 'Completed'
+                          ? 'bg-gray-100 text-gray-800'
+                          : rosca.status === 'Distributed'
+                          ? 'bg-purple-100 text-purple-800'
                           : 'bg-gray-100 text-gray-800'
                       }
                     >
