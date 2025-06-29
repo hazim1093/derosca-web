@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Eye, Plus, Gift, ExternalLink, Wallet } from 'lucide-react';
+import { Users, Eye, Plus, Gift, ExternalLink, Wallet, CheckCircle, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -461,17 +461,24 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
                     {/* Current Round label */}
                     <div className="text-lg font-medium text-gray-700 mb-1">Current Round</div>
                     {/* Enhanced Status Information with Contract Balance */}
-                    <div className="grid md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Distributed */}
                       <div className="bg-gray-50 p-4 rounded-xl flex flex-col justify-center">
-                        <p className="text-sm text-gray-600 mb-1">Distributed</p>
+                        <div className="flex items-center space-x-2 mb-1">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          <p className="text-sm text-gray-600">Distributed</p>
+                        </div>
                         <p className="text-lg font-bold text-gray-900">{isDistributed ? 'Yes' : 'No'}</p>
                       </div>
+                      {/* Recipient */}
                       <div className="bg-gray-50 p-4 rounded-xl flex flex-col justify-center">
-                        <p className="text-sm text-gray-600 mb-1">Recipient</p>
-                        <p className="text-lg font-bold text-gray-900">
-                          {shortenAddress(recipient)}
-                        </p>
+                        <div className="flex items-center space-x-2 mb-1">
+                          <User className="w-4 h-4 text-blue-600" />
+                          <p className="text-sm text-gray-600">Recipient</p>
+                        </div>
+                        <p className="text-lg font-bold text-gray-900">{shortenAddress(recipient)}</p>
                       </div>
+                      {/* Contract Balance */}
                       <div className="bg-gray-50 p-4 rounded-xl flex flex-col justify-center">
                         <div className="flex items-center space-x-2 mb-1">
                           <Wallet className="w-4 h-4 text-orange-600" />

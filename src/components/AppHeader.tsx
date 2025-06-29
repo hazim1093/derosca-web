@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,20 +10,20 @@ interface AppHeaderProps {
   onLogoClick?: () => void;
 }
 
-const AppHeader: React.FC<AppHeaderProps> = ({ 
-  showBackButton = false, 
-  onBack, 
+const AppHeader: React.FC<AppHeaderProps> = ({
+  showBackButton = false,
+  onBack,
   title,
-  onLogoClick 
+  onLogoClick
 }) => {
   return (
-    <header className="w-full bg-white border-b border-rose-100 px-4 py-4">
-      <div className="max-w-6xl mx-auto flex items-center justify-between">
+    <header className="w-full bg-white border-b border-rose-100 px-4 py-2 md:py-4">
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center md:justify-between gap-2 md:gap-0">
         {/* Left section - Back button or Small Logo */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-4 justify-center w-full md:w-auto">
           {showBackButton && onBack ? (
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               onClick={onBack}
               className="text-muted-foreground hover:text-foreground"
             >
@@ -32,7 +31,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               Back
             </Button>
           ) : (
-            <button 
+            <button
               onClick={onLogoClick}
               className="flex items-center space-x-3 hover:opacity-80 transition-opacity cursor-pointer"
             >
@@ -50,7 +49,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
         </div>
 
         {/* Right section - Wallet Connection */}
-        <div className="flex items-center">
+        <div className="flex items-center justify-center w-full md:w-auto">
           <ConnectButton />
         </div>
       </div>

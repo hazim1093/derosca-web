@@ -55,7 +55,7 @@ const ConnectButton: React.FC = () => {
               }
 
               return (
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-2 md:flex-row md:gap-3 flex-nowrap items-center">
                   <Button
                     onClick={openChainModal}
                     variant="outline"
