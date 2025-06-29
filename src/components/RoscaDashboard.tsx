@@ -342,7 +342,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
           </div>
         ) : (
           <>
-            <div className="grid md:grid-cols-4 gap-6 mb-8">
+            <div className="grid md:grid-cols-3 gap-6 mb-8">
               <Card className="border-0 shadow-lg">
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-3">
@@ -380,20 +380,6 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
                     <div>
                       <p className="text-sm text-gray-600">Your Contribution</p>
                       <p className="text-2xl font-bold text-gray-900">{contributionAmount ? Number(contributionAmount) / 1e18 : 0} ETH</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-0 shadow-lg">
-                <CardContent className="p-6">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-orange-100 rounded-lg">
-                      <Wallet className="w-6 h-6 text-orange-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Contract Balance</p>
-                      <p className="text-2xl font-bold text-gray-900">{contractBalance ? Number(contractBalance) / 1e18 : 0} ETH</p>
                     </div>
                   </div>
                 </CardContent>
@@ -474,8 +460,8 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
                     )}
                     {/* Current Round label */}
                     <div className="text-lg font-medium text-gray-700 mb-1">Current Round</div>
-                    {/* Only Distributed and Recipient fields in one row */}
-                    <div className="grid md:grid-cols-2 gap-4">
+                    {/* Enhanced Status Information with Contract Balance */}
+                    <div className="grid md:grid-cols-3 gap-4">
                       <div className="bg-gray-50 p-4 rounded-xl flex flex-col justify-center">
                         <p className="text-sm text-gray-600 mb-1">Distributed</p>
                         <p className="text-lg font-bold text-gray-900">{isDistributed ? 'Yes' : 'No'}</p>
@@ -485,6 +471,13 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
                         <p className="text-lg font-bold text-gray-900">
                           {shortenAddress(recipient)}
                         </p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-xl flex flex-col justify-center">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <Wallet className="w-4 h-4 text-orange-600" />
+                          <p className="text-sm text-gray-600">Contract Balance</p>
+                        </div>
+                        <p className="text-lg font-bold text-gray-900">{contractBalance ? Number(contractBalance) / 1e18 : 0} ETH</p>
                       </div>
                     </div>
                   </div>
