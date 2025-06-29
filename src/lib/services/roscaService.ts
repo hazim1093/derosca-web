@@ -326,37 +326,68 @@ export async function claimDistributionToRosca({
   }
 }
 
+/**
+ * Centralized logic for the blue status note in the dashboard.
+ * Handles:
+ * - Waiting for participants to join
+ * - Waiting for contributions
+ * - Waiting for recipient to claim
+ * - All other round/user status messages
+ */
+export function getRoscaStatusNote({
+  participants,
+  totalParticipants,
+  myTurn,
+  isDistributed,
+  hasContributed,
+  recipient,
+  userAddress,
+}: {
+  participants: any[];
+  totalParticipants: bigint | number | null;
+  myTurn: boolean;
+  isDistributed: boolean;
+  hasContributed: boolean;
+  recipient: string;
+  userAddress: string;
+}): string {
+  // 1. Not all participants have joined
+  if (participants.length < Number(totalParticipants)) {
+    return 'Waiting for other participants to join the ROSCA...';
+  }
+
+  // 2. All participants joined, but not all have contributed
+  const allContributed = participants.every((p) => p.status === 'paid');
+  if (!allContributed && !isDistributed) {
+    if (!hasContributed) {
+      return 'Please make your contribution for this round.';
+    } else {
+      return 'Waiting for other participants to contribute.';
+    }
+  }
+
+  // 3. All contributed, but recipient hasn't claimed
+  if (allContributed && !isDistributed) {
+    if (myTurn) {
+      return 'It\'s your turn to claim the distribution!';
+    } else {
+      return 'Waiting for the recipient to claim the distribution...';
+    }
+  }
+
+  // 4. Round has been distributed
+  if (isDistributed) {
+    return 'This round has been distributed. Wait for the next round.';
+  }
+
+  // Fallback
+  return 'Waiting for the next action...';
+}
+
 export function isUserTurn(recipient: string, userAddress: string): boolean {
   return (
     typeof recipient === 'string' &&
     typeof userAddress === 'string' &&
     recipient.toLowerCase() === userAddress.toLowerCase()
   );
-}
-
-export function getRoscaUserActionMessage({
-  myTurn,
-  isDistributed,
-  hasContributed,
-}: {
-  myTurn: boolean;
-  isDistributed: boolean;
-  hasContributed: boolean;
-}): string {
-  if (isDistributed) {
-    return "This round has been distributed. Wait for the next round.";
-  }
-  if (myTurn) {
-    if (!hasContributed) {
-      return "Please make your contribution for this round.";
-    } else {
-      return "It's your turn to claim the distribution!";
-    }
-  } else {
-    if (!hasContributed) {
-      return "Please make your contribution for this round.";
-    } else {
-      return "Waiting for other participants to contribute.";
-    }
-  }
 }

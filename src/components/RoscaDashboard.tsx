@@ -8,8 +8,8 @@ import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/comp
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { roscaAbi } from '../lib/contracts/rosca.artifacts';
 import { useContributeRosca } from '../lib/contracts/roscaContract';
-import { fetchContractValue, fetchRoundStatus, contributeToRosca, claimDistributionToRosca, getRoscaDetails, isUserTurn, getRoscaUserActionMessage } from '../lib/services/roscaService';
-import { shortenAddress } from '../lib/utils';
+import { fetchContractValue, fetchRoundStatus, contributeToRosca, claimDistributionToRosca, getRoscaDetails, getRoscaStatusNote, isUserTurn } from '../lib/services/roscaService';
+import { shortenAddress, retryWithBackoff } from '../lib/utils';
 import { useRoscaParticipants } from '../hooks/useRoscaParticipants';
 import { toast } from 'sonner';
 
@@ -44,25 +44,34 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
   const [error, setError] = useState<string | null>(null);
   const [roscaStatus, setRoscaStatus] = useState<string>('Active');
 
-  // Fetch all contract data on mount or when contractAddress changes
-  const fetchAll = async () => {
+  // Helper function to fetch contract data
+  const fetchContractData = async () => {
     if (!contractAddress || !publicClient) return;
+
     setLoading(true);
     setError(null);
+
     try {
-      // Fetch backend status and details
-      const details = await getRoscaDetails({ contractAddress, publicClient, roscaAbi });
-      setTotalAmount(BigInt(Math.floor(details.totalAmount * 1e18)));
-      setContributionAmount(BigInt(Math.floor(details.contributionAmount * 1e18)));
-      setTotalParticipants(BigInt(details.participants));
-      // Fetch currentRound and roundStatusRaw for rest of UI
-      const [currentRoundVal, roundStatusVal] = await Promise.all([
-        fetchContractValue({ contractAddress, publicClient, roscaAbi, functionName: 'currentRound' }),
-        fetchRoundStatus({ contractAddress, publicClient, roscaAbi })
-      ]);
-      setCurrentRound(currentRoundVal as bigint);
-      setRoundStatusRaw(roundStatusVal);
-      setRoscaStatus(details.status);
+      await retryWithBackoff(
+        async () => {
+          // Fetch backend status and details
+          const details = await getRoscaDetails({ contractAddress, publicClient, roscaAbi });
+          setTotalAmount(BigInt(Math.floor(details.totalAmount * 1e18)));
+          setContributionAmount(BigInt(Math.floor(details.contributionAmount * 1e18)));
+          setTotalParticipants(BigInt(details.participants));
+
+          // Fetch currentRound and roundStatusRaw for rest of UI
+          const [currentRoundVal, roundStatusVal] = await Promise.all([
+            fetchContractValue({ contractAddress, publicClient, roscaAbi, functionName: 'currentRound' }),
+            fetchRoundStatus({ contractAddress, publicClient, roscaAbi })
+          ]);
+          setCurrentRound(currentRoundVal as bigint);
+          setRoundStatusRaw(roundStatusVal);
+          setRoscaStatus(details.status);
+        },
+        2, // maxAttempts: retry once
+        2000 // baseDelay: 2 seconds
+      );
     } catch (err: any) {
       setError(err.message || 'Failed to fetch contract data');
     } finally {
@@ -71,7 +80,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
   };
 
   useEffect(() => {
-    fetchAll();
+    fetchContractData();
   }, [contractAddress, publicClient]);
 
   // Use custom hook for participants
@@ -138,7 +147,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
     });
     if (result.success) {
       toast.success('Contribution submitted successfully!');
-      await fetchAll();
+      await fetchContractData();
       setParticipantsRefreshKey((k) => k + 1);
     } else if (result.success === false) {
       setContributionError(result.error);
@@ -171,7 +180,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
       });
       if (result.success) {
         toast.success('Distribution claimed successfully!');
-        await fetchAll();
+        await fetchContractData();
         setParticipantsRefreshKey((k) => k + 1);
         // Wait for transaction receipt (assume last tx hash is available from walletClient)
         // If you want to get the hash, you may need to update claimDistributionToRosca to return it
@@ -255,7 +264,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      Current network
+                      Contract network
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -319,7 +328,13 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
         )}
 
         {isLoading ? (
-          <div className="text-center py-12 text-lg text-gray-500">Loading ROSCA data...</div>
+          <div className="text-center py-12">
+            <div className="flex flex-col items-center space-y-4">
+              <div className="w-8 h-8 border-4 border-rose-200 border-t-rose-500 rounded-full animate-spin"></div>
+              <div className="text-lg text-gray-500">Loading ROSCA data...</div>
+              <div className="text-sm text-gray-400">Fetching contract details and participant information</div>
+            </div>
+          </div>
         ) : (
           <>
             <div className="grid md:grid-cols-3 gap-6 mb-8">
@@ -426,7 +441,15 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
                     ) : (
                       <div className="bg-blue-50 border border-blue-200 p-6 rounded-xl">
                         <p className="text-blue-900 font-medium">
-                          {getRoscaUserActionMessage({ myTurn, isDistributed, hasContributed })}
+                          {getRoscaStatusNote({
+                            participants,
+                            totalParticipants,
+                            myTurn,
+                            isDistributed,
+                            hasContributed,
+                            recipient,
+                            userAddress,
+                          })}
                         </p>
                       </div>
                     )}

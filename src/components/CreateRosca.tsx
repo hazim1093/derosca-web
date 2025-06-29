@@ -1,12 +1,14 @@
-
 import React, { useState } from 'react';
-import { Users, DollarSign } from 'lucide-react';
-import { useAccount } from 'wagmi';
+import { Users, DollarSign, CheckCircle, Loader2 } from 'lucide-react';
+import { useAccount, usePublicClient } from 'wagmi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useContractDeployment, DeployParams } from '../lib/contracts/roscaContract';
+import { getRoscaDetails } from '../lib/services/roscaService';
+import { roscaAbi } from '../lib/contracts/rosca.artifacts';
+import { waitForContractState } from '../lib/utils';
 import { toast } from 'sonner';
 
 interface CreateRoscaProps {
@@ -24,11 +26,14 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
   const [participants, setParticipants] = useState<number>(5);
   const [totalAmount, setTotalAmount] = useState<number>(1); // Start with 1 ETH
   const [isDeploying, setIsDeploying] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [error, setError] = useState<string>('');
   const [deployedAddress, setDeployedAddress] = useState<string>('');
+  const [deploymentStep, setDeploymentStep] = useState<'setup' | 'deploying' | 'confirming' | 'success'>('setup');
 
   const { isConnected } = useAccount();
   const { deployContract } = useContractDeployment();
+  const publicClient = usePublicClient();
 
   const contributionAmount = totalAmount / participants;
 
@@ -40,6 +45,7 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
     }
 
     setIsDeploying(true);
+    setDeploymentStep('deploying');
     setError('');
 
     try {
@@ -58,6 +64,29 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
       setDeployedAddress(contractAddress);
       toast.success(`ROSCA contract deployed successfully at ${contractAddress}`);
 
+      // Wait for contract state to be ready
+      setDeploymentStep('confirming');
+      setIsConfirming(true);
+      toast.info('Confirming contract state...');
+
+      await waitForContractState(async () => {
+        console.log('Checking contract state...');
+        const details = await getRoscaDetails({
+          contractAddress,
+          publicClient,
+          roscaAbi
+        });
+        console.log('Contract details:', details);
+        return details.currentParticipants >= 1;
+      });
+
+      setDeploymentStep('success');
+      setIsConfirming(false);
+      toast.success('Contract ready! Navigating to dashboard...');
+
+      // Small delay to show success state
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       // Call the original onDeploy callback with the contract data and address
       onDeploy({
         numberOfParticipants: participants,
@@ -70,22 +99,53 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
       const errorMessage = err instanceof Error ? err.message : 'Deployment failed';
       setError(errorMessage);
       toast.error('Failed to deploy contract. Please try again.');
+      setDeploymentStep('setup');
     } finally {
       setIsDeploying(false);
+      setIsConfirming(false);
     }
   };
 
-  return (
-    <div className="flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-foreground">
-              Create New ROSCA
-            </CardTitle>
-            <p className="text-muted-foreground">Set your ROSCA parameters</p>
-          </CardHeader>
-          <CardContent className="space-y-6">
+  const renderContent = () => {
+    switch (deploymentStep) {
+      case 'deploying':
+        return (
+          <div className="text-center py-8">
+            <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-rose-500" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Deploying Contract</h3>
+            <p className="text-gray-600">Please wait while we deploy your ROSCA contract...</p>
+            <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
+          </div>
+        );
+
+      case 'confirming':
+        return (
+          <div className="text-center py-8">
+            <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-500" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Confirming Contract</h3>
+            <p className="text-gray-600">Waiting for contract state to be ready...</p>
+            <p className="text-sm text-gray-500 mt-2">This ensures accurate data display</p>
+          </div>
+        );
+
+      case 'success':
+        return (
+          <div className="text-center py-8">
+            <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Contract Ready!</h3>
+            <p className="text-gray-600">Your ROSCA contract is ready to use</p>
+            <div className="bg-green-50 border border-green-200 p-4 rounded-xl mt-4">
+              <p className="text-green-700 text-sm font-medium">Contract Deployed Successfully!</p>
+              <p className="text-green-600 text-xs mt-1 break-all">
+                Address: {deployedAddress}
+              </p>
+            </div>
+          </div>
+        );
+
+      default:
+        return (
+          <>
             {/* Wallet Connection Status */}
             {!isConnected && (
               <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-xl">
@@ -156,23 +216,35 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
               </div>
             )}
 
-            {/* Success Display */}
-            {deployedAddress && (
-              <div className="bg-green-50 border border-green-200 p-3 rounded-xl">
-                <p className="text-green-700 text-sm font-medium">Contract Deployed Successfully!</p>
-                <p className="text-green-600 text-xs mt-1 break-all">
-                  Address: {deployedAddress}
-                </p>
-              </div>
-            )}
-
             <Button
               onClick={handleDeploy}
-              disabled={isDeploying || !isConnected}
+              disabled={isDeploying || isConfirming || !isConnected}
               className="w-full bg-gradient-to-r from-rose-500 to-peach-400 hover:from-rose-600 hover:to-peach-500 text-white rounded-xl py-3 font-medium transition-all duration-200"
             >
-              {isDeploying ? 'Deploying Contract...' : 'Deploy Contract + Initial Contribution'}
+              {isDeploying || isConfirming ? 'Processing...' : 'Deploy Contract + Initial Contribution'}
             </Button>
+          </>
+        );
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <Card className="border-0 shadow-lg">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold text-foreground">
+              Create New ROSCA
+            </CardTitle>
+            <p className="text-muted-foreground">
+              {deploymentStep === 'setup' ? 'Set your ROSCA parameters' :
+               deploymentStep === 'deploying' ? 'Deploying your contract' :
+               deploymentStep === 'confirming' ? 'Setting up your contract' :
+               'Contract ready!'}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {renderContent()}
           </CardContent>
         </Card>
       </div>
