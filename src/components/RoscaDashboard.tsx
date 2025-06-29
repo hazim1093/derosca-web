@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Eye, Plus, Gift, ExternalLink } from 'lucide-react';
+import { Users, Eye, Plus, Gift, ExternalLink, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +40,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
   const [totalParticipants, setTotalParticipants] = useState<bigint | null>(null);
   const [currentRound, setCurrentRound] = useState<bigint | null>(null);
   const [roundStatusRaw, setRoundStatusRaw] = useState<any>(null);
+  const [contractBalance, setContractBalance] = useState<bigint | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roscaStatus, setRoscaStatus] = useState<string>('Active');
@@ -59,6 +60,10 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
           setTotalAmount(BigInt(Math.floor(details.totalAmount * 1e18)));
           setContributionAmount(BigInt(Math.floor(details.contributionAmount * 1e18)));
           setTotalParticipants(BigInt(details.participants));
+
+          // Fetch contract balance
+          const balance = await publicClient.getBalance({ address: contractAddress });
+          setContractBalance(balance);
 
           // Fetch currentRound and roundStatusRaw for rest of UI
           const [currentRoundVal, roundStatusVal] = await Promise.all([
@@ -337,7 +342,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
           </div>
         ) : (
           <>
-            <div className="grid md:grid-cols-3 gap-6 mb-8">
+            <div className="grid md:grid-cols-4 gap-6 mb-8">
               <Card className="border-0 shadow-lg">
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-3">
@@ -375,6 +380,20 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
                     <div>
                       <p className="text-sm text-gray-600">Your Contribution</p>
                       <p className="text-2xl font-bold text-gray-900">{contributionAmount ? Number(contributionAmount) / 1e18 : 0} ETH</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-lg">
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <Wallet className="w-6 h-6 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Contract Balance</p>
+                      <p className="text-2xl font-bold text-gray-900">{contractBalance ? Number(contractBalance) / 1e18 : 0} ETH</p>
                     </div>
                   </div>
                 </CardContent>
