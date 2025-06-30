@@ -23,7 +23,7 @@ export async function retryWithBackoff<T>(
   operation: () => Promise<T>,
   maxAttempts: number = 10,
   baseDelay: number = 2000,
-  shouldRetry?: (error: any) => boolean
+  shouldRetry?: (error: unknown) => boolean
 ): Promise<T> {
   let attempts = 0;
 

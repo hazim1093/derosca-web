@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { fetchParticipants, fetchHasContributedBatch } from '../lib/services/roscaService';
 import { roscaAbi } from '../lib/contracts/rosca.artifacts';
+import { PublicClient } from 'viem';
 
 export interface UseRoscaParticipantsParams {
   contractAddress?: string;
   totalParticipants?: bigint | null;
-  publicClient?: any;
+  publicClient?: PublicClient;
   refreshKey?: number;
 }
 
@@ -44,8 +45,12 @@ export function useRoscaParticipants({ contractAddress, totalParticipants, publi
           turn: i + 1,
         }));
         setParticipants(participantsList);
-      } catch (err: any) {
-        setError(err.message || 'Failed to fetch participants');
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message || 'Failed to fetch participants');
+        } else {
+          setError('An unknown error occurred while fetching participants.');
+        }
         setParticipants([]);
       } finally {
         setLoading(false);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Users, Eye, RefreshCw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,21 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAccount, usePublicClient } from 'wagmi';
-import { roscaAbi } from '../lib/contracts/rosca.artifacts';
-import { getUserRoscaContracts, cacheUserRoscas, getCachedUserRoscas, getRoscaByAddress } from '../lib/services/userRoscaService';
+import { getRoscaByAddress, getUserRoscasWithDetails, UserRosca } from '@/lib/services/userRoscaService';
+import { roscaAbi } from '@/lib/contracts/rosca.artifacts';
+import { shortenAddress } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface MyRoscasProps {
   onBack: () => void;
   onViewRosca: (contractAddress: string) => void;
-}
-
-interface UserRosca {
-  contractAddress: string;
-  totalAmount: number;
-  contributionAmount: number;
-  participants: number;
-  currentParticipants: number;
-  status: string;
 }
 
 const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
@@ -35,65 +28,38 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
 
-  const fetchUserRoscas = async (useCache = true) => {
-    if (!address || !isConnected || !publicClient) {
-      setLoading(false);
-      return;
-    }
+  const fetchUserRoscas = useCallback(
+    async (useCache = true) => {
+      if (!address || !isConnected || !publicClient) {
+        setLoading(false);
+        return;
+      }
 
-    setError(null);
+      setLoading(true);
+      setError(null);
 
-    try {
-      console.log('Fetching user ROSCAs...');
-
-      // Try to get cached data first
-      let contracts = useCache ? getCachedUserRoscas(address) : null;
-
-      if (!contracts) {
-        console.log('No cached data, fetching from blockchain...');
-        // Fetch from blockchain
-        const discoveredContracts = await getUserRoscaContracts({
+      try {
+        const roscas = await getUserRoscasWithDetails({
           userAddress: address,
           publicClient,
           roscaAbi,
+          useCache,
         });
-        contracts = discoveredContracts;
-
-        // Cache the results
-        cacheUserRoscas(address, contracts);
-      } else {
-        console.log('Using cached ROSCA data');
+        setRoscas(roscas);
+      } catch (err: unknown) {
+        console.error('Error in fetchUserRoscas:', err);
+        if (err instanceof Error) {
+          setError(err.message || 'Failed to fetch your ROSCAs');
+        } else {
+          setError('An unknown error occurred while fetching your ROSCAs.');
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-
-      // Fetch details for each contract
-      const roscaDetails = await Promise.all(
-        contracts.map(async (contract: any) => {
-          try {
-            const details = await getRoscaByAddress({
-              contractAddress: contract.contractAddress,
-              publicClient,
-              roscaAbi,
-            });
-            return details;
-          } catch (err) {
-            console.error(`Error fetching details for ${contract.contractAddress}:`, err);
-            return null;
-          }
-        })
-      );
-
-      // Filter out failed requests
-      const validRoscas = roscaDetails.filter((rosca): rosca is UserRosca => rosca !== null);
-      console.log(`Successfully loaded ${validRoscas.length} ROSCAs`);
-      setRoscas(validRoscas);
-    } catch (err: any) {
-      console.error('Error in fetchUserRoscas:', err);
-      setError(err.message || 'Failed to fetch your ROSCAs');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+    },
+    [address, isConnected, publicClient],
+  );
 
   const handleSearchByAddress = async () => {
     if (!contractSearch.trim() || !isConnected || !publicClient) return;
@@ -116,7 +82,7 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
       }
 
       setContractSearch('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error searching ROSCA by address:', err);
       setSearchError('Failed to find ROSCA at this address. Please check the address.');
     } finally {
@@ -126,7 +92,7 @@ const MyRoscas: React.FC<MyRoscasProps> = ({ onBack, onViewRosca }) => {
 
   useEffect(() => {
     fetchUserRoscas();
-  }, [address, isConnected, publicClient]);
+  }, [fetchUserRoscas]);
 
   const handleRefresh = () => {
     setRefreshing(true);

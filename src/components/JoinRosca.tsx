@@ -14,10 +14,18 @@ interface JoinRoscaProps {
   onJoin: (contractAddress: string) => void;
 }
 
+interface RoscaDetails {
+  totalAmount: number;
+  contributionAmount: number;
+  participants: number;
+  currentParticipants: number;
+  status: string;
+}
+
 const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
   const [contractAddress, setContractAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [roscaDetails, setRoscaDetails] = useState<any>(null);
+  const [roscaDetails, setRoscaDetails] = useState<RoscaDetails | null>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -36,7 +44,7 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
     setIsLoading(true);
     setFetchError(null);
     try {
-      const details = await getRoscaDetails({ contractAddress, publicClient, roscaAbi });
+      const details = await getRoscaDetails({ contractAddress: contractAddress as `0x${string}`, publicClient, roscaAbi });
       setRoscaDetails(details);
       setFetchError(null);
     } catch (err) {
@@ -69,8 +77,8 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
           account,
           value,
         });
-      } catch (simErr: any) {
-        setFetchError(`Failed to join ROSCA: ${extractRevertReason(simErr)}`);
+      } catch (simErr: unknown) {
+        setFetchError(`Failed to join ROSCA: ${extractRevertReason(simErr as Error)}`);
         setIsJoining(false);
         return;
       }
@@ -78,8 +86,8 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
       await joinRosca(contractAddress, roscaDetails.contributionAmount);
       toast.success('Successfully joined the ROSCA!');
       onJoin(contractAddress);
-    } catch (err: any) {
-      setFetchError(`Failed to join ROSCA: ${extractRevertReason(err)}`);
+    } catch (err: unknown) {
+      setFetchError(`Failed to join ROSCA: ${extractRevertReason(err as Error)}`);
       setRoscaDetails(roscaDetails); // keep details so user can try again
     } finally {
       setIsJoining(false);
