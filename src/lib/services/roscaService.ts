@@ -1,4 +1,4 @@
-import { Abi } from 'viem';
+import { Abi, PublicClient, WalletClient, Chain } from 'viem';
 import { roscaAbi, roscaBytecode } from '../contracts/rosca.artifacts';
 
 // Fetch all participants addresses
@@ -10,14 +10,14 @@ export async function fetchParticipants({
 }: {
   contractAddress: string;
   totalParticipants: number;
-  publicClient: any;
+  publicClient: PublicClient;
   roscaAbi: Abi;
 }): Promise<`0x${string}`[]> {
   const addresses = await Promise.all(
     Array.from({ length: totalParticipants }, async (_, idx) => {
       try {
         return await publicClient.readContract({
-          address: contractAddress,
+          address: contractAddress as `0x${string}`,
           abi: roscaAbi,
           functionName: 'participantList',
           args: [BigInt(idx)],
@@ -39,13 +39,13 @@ export async function fetchParticipants({
 // Fetch a single value from the contract
 type FetchContractValueParams = {
   contractAddress: string;
-  publicClient: any;
+  publicClient: PublicClient;
   roscaAbi: Abi;
   functionName: string;
 };
 export async function fetchContractValue({ contractAddress, publicClient, roscaAbi, functionName }: FetchContractValueParams) {
   return publicClient.readContract({
-    address: contractAddress,
+    address: contractAddress as `0x${string}`,
     abi: roscaAbi,
     functionName,
   });
@@ -54,7 +54,7 @@ export async function fetchContractValue({ contractAddress, publicClient, roscaA
 // Fetch round status (tuple)
 export async function fetchRoundStatus({ contractAddress, publicClient, roscaAbi }: Omit<FetchContractValueParams, 'functionName'>) {
   return publicClient.readContract({
-    address: contractAddress,
+    address: contractAddress as `0x${string}`,
     abi: roscaAbi,
     functionName: 'getCurrentRoundStatus',
   });
@@ -68,7 +68,7 @@ export async function fetchHasContributedBatch({
   addresses,
 }: {
   contractAddress: string;
-  publicClient: any;
+  publicClient: PublicClient;
   roscaAbi: Abi;
   addresses: `0x${string}`[];
 }): Promise<boolean[]> {
@@ -76,7 +76,7 @@ export async function fetchHasContributedBatch({
     addresses.map(async (addr) => {
       try {
         return await publicClient.readContract({
-          address: contractAddress,
+          address: contractAddress as `0x${string}`,
           abi: roscaAbi,
           functionName: 'hasContributed',
           args: [addr],
@@ -85,11 +85,11 @@ export async function fetchHasContributedBatch({
         return false;
       }
     })
-  );
+  ) as Promise<boolean[]>;
 }
 
 // Fetch all ROSCA details and compute status for the JoinRosca UI
-export async function getRoscaDetails({ contractAddress, publicClient, roscaAbi }) {
+export async function getRoscaDetails({ contractAddress, publicClient, roscaAbi }: { contractAddress: string; publicClient: PublicClient; roscaAbi: Abi; }) {
   // Fetch contract values
   const [totalAmount, contributionAmount, totalParticipants, currentRound] = await Promise.all([
     fetchContractValue({
@@ -138,7 +138,7 @@ export async function getRoscaDetails({ contractAddress, publicClient, roscaAbi 
   if (Number(totalParticipants) > 0) {
     try {
       const lastRound = await publicClient.readContract({
-        address: contractAddress,
+        address: contractAddress as `0x${string}`,
         abi: roscaAbi,
         functionName: 'rounds',
         args: [BigInt(Number(totalParticipants) - 1)],
@@ -155,7 +155,7 @@ export async function getRoscaDetails({ contractAddress, publicClient, roscaAbi 
   let status = 'Active';
   if (isComplete) {
     status = 'Completed';
-  } else if (roundStatus.isDistributed) {
+  } else if ((roundStatus as { isDistributed: boolean }).isDistributed) {
     status = 'Distributed';
   } else if (participants.length >= Number(totalParticipants)) {
     status = 'Full';
@@ -170,14 +170,48 @@ export async function getRoscaDetails({ contractAddress, publicClient, roscaAbi 
   };
 }
 
+// A new function to fetch all data required for the dashboard
+export async function getRoscaDashboardDetails({
+  contractAddress,
+  publicClient,
+  roscaAbi,
+}: {
+  contractAddress: `0x${string}`;
+  publicClient: PublicClient;
+  roscaAbi: Abi;
+}) {
+  try {
+    const [details, balance, currentRoundVal, roundStatusVal] = await Promise.all([
+      getRoscaDetails({ contractAddress, publicClient, roscaAbi }),
+      publicClient.getBalance({ address: contractAddress }),
+      fetchContractValue({ contractAddress, publicClient, roscaAbi, functionName: 'currentRound' }),
+      fetchRoundStatus({ contractAddress, publicClient, roscaAbi }),
+    ]);
+
+    return {
+      totalAmount: BigInt(Math.floor(details.totalAmount * 1e18)),
+      contributionAmount: BigInt(Math.floor(details.contributionAmount * 1e18)),
+      totalParticipants: BigInt(details.participants),
+      contractBalance: balance,
+      currentRound: currentRoundVal as bigint,
+      roundStatusRaw: roundStatusVal as [bigint, string, bigint, bigint, boolean],
+      roscaStatus: details.status,
+    };
+  } catch (err) {
+    console.error('Error fetching dashboard details:', err);
+    // Re-throw the error to be caught by the component
+    throw err;
+  }
+}
+
 // Extract a user-friendly revert reason from an error object
-export function extractRevertReason(err: any): string {
+export function extractRevertReason(err: unknown): string {
   // Handle viem/ethers style error objects
-  if (err?.cause?.reason) {
-    return err.cause.reason;
+  if (err instanceof Error && 'cause' in err && err.cause && typeof err.cause === 'object' && 'reason' in err.cause) {
+    return (err.cause as { reason: string }).reason;
   }
   // Handle JSON-RPC error with nested data
-  if (err?.data?.message) {
+  if (err && typeof err === 'object' && 'data' in err && err.data && typeof err.data === 'object' && 'message' in err.data && typeof err.data.message === 'string') {
     const match = err.data.message.match(/reverted with reason string '([^']+)'/);
     if (match && match[1]) {
       return match[1];
@@ -186,7 +220,7 @@ export function extractRevertReason(err: any): string {
     }
   }
   // Handle JSON-RPC error with nested data.error.message
-  if (err?.data?.error?.message) {
+  if (err && typeof err === 'object' && 'data' in err && err.data && typeof err.data === 'object' && 'error' in err.data && err.data.error && typeof err.data.error === 'object' && 'message' in err.data.error && typeof err.data.error.message === 'string') {
     const match = err.data.error.message.match(/reverted with reason string '([^']+)'/);
     if (match && match[1]) {
       return match[1];
@@ -195,7 +229,7 @@ export function extractRevertReason(err: any): string {
     }
   }
   // Handle top-level message
-  if (err?.message) {
+  if (err instanceof Error && err.message) {
     const match = err.message.match(/reverted with reason string '([^']+)'/);
     if (match && match[1]) {
       return match[1];
@@ -220,14 +254,14 @@ export async function simulateAndSend({
   value,
   chain,
 }: {
-  publicClient: any,
-  walletClient: any,
+  publicClient: PublicClient,
+  walletClient: WalletClient,
   contractAddress: string,
-  abi: any,
+  abi: Abi,
   functionName: string,
-  args?: any[],
+  args?: unknown[],
   value?: bigint,
-  chain: any,
+  chain: Chain,
 }): Promise<{ success: true; hash: string } | { success: false; error: string }> {
   try {
     const [account] = await walletClient.getAddresses();
@@ -241,7 +275,7 @@ export async function simulateAndSend({
         value,
         account,
       });
-    } catch (simErr: any) {
+    } catch (simErr: unknown) {
       return { success: false, error: extractRevertReason(simErr) };
     }
     // 2. Send
@@ -255,7 +289,7 @@ export async function simulateAndSend({
       chain,
     });
     return { success: true, hash };
-  } catch (err: any) {
+  } catch (err: unknown) {
     return { success: false, error: extractRevertReason(err) };
   }
 }
@@ -269,12 +303,12 @@ export async function contributeToRosca({
   roscaAbi,
   chain
 }: {
-  walletClient: any;
-  publicClient: any;
+  walletClient: WalletClient;
+  publicClient: PublicClient;
   contractAddress: string;
   contributionAmount: number | string;
-  roscaAbi: any;
-  chain: any;
+  roscaAbi: Abi;
+  chain: Chain;
 }): Promise<{ success: true } | { success: false; error: string }> {
   const value = BigInt(Math.floor(Number(contributionAmount) * 1e18));
   const result = await simulateAndSend({
@@ -303,11 +337,11 @@ export async function claimDistributionToRosca({
   roscaAbi,
   chain
 }: {
-  walletClient: any;
-  publicClient: any;
+  walletClient: WalletClient;
+  publicClient: PublicClient;
   contractAddress: string;
-  roscaAbi: any;
-  chain: any;
+  roscaAbi: Abi;
+  chain: Chain;
 }): Promise<{ success: true } | { success: false; error: string }> {
   const result = await simulateAndSend({
     publicClient,
@@ -343,7 +377,7 @@ export function getRoscaStatusNote({
   recipient,
   userAddress,
 }: {
-  participants: any[];
+  participants: { id: number; address: `0x${string}`; status: 'paid' | 'pending'; turn: number; }[];
   totalParticipants: bigint | number | null;
   myTurn: boolean;
   isDistributed: boolean;
@@ -351,6 +385,7 @@ export function getRoscaStatusNote({
   recipient: string;
   userAddress: string;
 }): string {
+  if (!totalParticipants) return 'Loading status...';
   // 1. Not all participants have joined
   if (participants.length < Number(totalParticipants)) {
     return 'Waiting for other participants to join the ROSCA...';

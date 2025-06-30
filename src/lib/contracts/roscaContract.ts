@@ -3,6 +3,7 @@ import { useWalletClient, usePublicClient } from 'wagmi';
 import { localhostChain } from '../wagmi';
 import { roscaAbi, roscaBytecode } from './rosca.artifacts';
 import { simulateAndSend } from '../services/roscaService';
+import { PublicClient, WalletClient } from 'viem';
 
 
 // Types for contract interaction
@@ -21,8 +22,8 @@ export interface RoscaContractData {
 
 // Deployment function
 export const deployRoscaContract = async (
-  walletClient: any,
-  publicClient: any,
+  walletClient: WalletClient,
+  publicClient: PublicClient,
   params: DeployParams
 ): Promise<string> => {
   try {
@@ -55,6 +56,7 @@ export const deployRoscaContract = async (
         parseEther(params.totalAmount.toString())
       ],
       value: parseEther(contributionAmount.toString()),
+      chain: localhostChain,
     });
 
     console.log('Deployment transaction hash:', hash);

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Plus, Users, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,9 +10,13 @@ import RoscaLogo from '@/components/RoscaLogo';
 
 type AppState = 'landing' | 'create' | 'join' | 'my-roscas' | 'dashboard';
 
+interface RoscaInfo {
+  contractAddress: string;
+}
+
 const Index = () => {
   const [currentView, setCurrentView] = useState<AppState>('landing');
-  const [roscaInfo, setRoscaInfo] = useState<any>(null);
+  const [roscaInfo, setRoscaInfo] = useState<RoscaInfo | null>(null);
 
   const handleCreateRosca = () => {
     setCurrentView('create');
@@ -37,7 +40,7 @@ const Index = () => {
     setRoscaInfo(null); // Clear rosca info when clicking logo
   };
 
-  const handleRoscaDeployed = (params: any) => {
+  const handleRoscaDeployed = (params: { contractAddress: string }) => {
     console.log('ROSCA deployed with params:', params);
     setRoscaInfo(params);
     setCurrentView('dashboard');
@@ -115,11 +118,11 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <AppHeader {...getHeaderProps()} />
-      
+
       <div className="flex flex-col items-center justify-center p-4 pt-16 space-y-12">
         {/* Centered ROSCA Logo */}
         <RoscaLogo />
-        
+
         {/* Action Buttons */}
         <div className="w-full max-w-md space-y-4">
           <Button

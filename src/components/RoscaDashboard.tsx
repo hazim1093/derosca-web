@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Users, Eye, Plus, Gift, ExternalLink, Wallet, CheckCircle, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,13 +8,22 @@ import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/comp
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { roscaAbi } from '../lib/contracts/rosca.artifacts';
 import { useContributeRosca } from '../lib/contracts/roscaContract';
-import { fetchContractValue, fetchRoundStatus, contributeToRosca, claimDistributionToRosca, getRoscaDetails, getRoscaStatusNote, isUserTurn } from '../lib/services/roscaService';
+import {
+  getRoscaStatusNote,
+  contributeToRosca,
+  claimDistributionToRosca,
+  getRoscaDashboardDetails,
+} from '../lib/services/roscaService';
 import { shortenAddress, retryWithBackoff } from '../lib/utils';
 import { useRoscaParticipants } from '../hooks/useRoscaParticipants';
 import { toast } from 'sonner';
 
+interface RoscaInfo {
+  contractAddress: string;
+}
+
 interface RoscaDashboardProps {
-  roscaInfo?: any;
+  roscaInfo?: RoscaInfo;
   onWalletDisconnected?: () => void;
 }
 
@@ -39,85 +48,92 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
   const [contributionAmount, setContributionAmount] = useState<bigint | null>(null);
   const [totalParticipants, setTotalParticipants] = useState<bigint | null>(null);
   const [currentRound, setCurrentRound] = useState<bigint | null>(null);
-  const [roundStatusRaw, setRoundStatusRaw] = useState<any>(null);
+  const [roundStatusRaw, setRoundStatusRaw] = useState<[bigint, string, bigint, bigint, boolean] | null>(null);
   const [contractBalance, setContractBalance] = useState<bigint | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roscaStatus, setRoscaStatus] = useState<string>('Active');
 
   // Helper function to fetch contract data
-  const fetchContractData = async () => {
+  const fetchContractData = useCallback(async () => {
     if (!contractAddress || !publicClient) return;
 
     setLoading(true);
     setError(null);
-
     try {
       await retryWithBackoff(
         async () => {
-          // Fetch backend status and details
-          const details = await getRoscaDetails({ contractAddress, publicClient, roscaAbi });
-          setTotalAmount(BigInt(Math.floor(details.totalAmount * 1e18)));
-          setContributionAmount(BigInt(Math.floor(details.contributionAmount * 1e18)));
-          setTotalParticipants(BigInt(details.participants));
-
-          // Fetch contract balance
-          const balance = await publicClient.getBalance({ address: contractAddress });
-          setContractBalance(balance);
-
-          // Fetch currentRound and roundStatusRaw for rest of UI
-          const [currentRoundVal, roundStatusVal] = await Promise.all([
-            fetchContractValue({ contractAddress, publicClient, roscaAbi, functionName: 'currentRound' }),
-            fetchRoundStatus({ contractAddress, publicClient, roscaAbi })
-          ]);
-          setCurrentRound(currentRoundVal as bigint);
-          setRoundStatusRaw(roundStatusVal);
-          setRoscaStatus(details.status);
+          const data = await getRoscaDashboardDetails({
+            contractAddress: contractAddress as `0x${string}`,
+            publicClient,
+            roscaAbi,
+          });
+          setTotalAmount(data.totalAmount);
+          setContributionAmount(data.contributionAmount);
+          setTotalParticipants(data.totalParticipants);
+          setContractBalance(data.contractBalance);
+          setCurrentRound(data.currentRound);
+          setRoundStatusRaw(data.roundStatusRaw);
+          setRoscaStatus(data.roscaStatus);
         },
         2, // maxAttempts: retry once
-        2000 // baseDelay: 2 seconds
+        2000, // baseDelay: 2 seconds
       );
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch contract data');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || 'Failed to fetch contract data');
+      } else {
+        setError('An unknown error occurred.');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [contractAddress, publicClient]);
 
   useEffect(() => {
     fetchContractData();
-  }, [contractAddress, publicClient]);
+  }, [fetchContractData]);
 
   // Use custom hook for participants
   const [participantsRefreshKey, setParticipantsRefreshKey] = useState(0);
-  const { participants, loading: participantsLoading, error: participantsError } = useRoscaParticipants({
+  const {
+    participants,
+    loading: participantsLoading,
+    error: participantsError,
+  } = useRoscaParticipants({
     contractAddress,
     totalParticipants,
     publicClient,
     refreshKey: participantsRefreshKey,
   });
 
-  // Destructure roundStatus tuple if available
-  let roundNumber, recipient, totalContributed, targetAmount, isDistributed;
-  if (roundStatusRaw && Array.isArray(roundStatusRaw)) {
-    roundNumber = roundStatusRaw[0];
-    recipient = roundStatusRaw[1];
-    totalContributed = roundStatusRaw[2];
-    targetAmount = roundStatusRaw[3];
-    isDistributed = roundStatusRaw[4];
-  }
+  const { recipient, isDistributed } = useMemo(() => {
+    if (!roundStatusRaw) return { recipient: '', isDistributed: false };
+    return {
+      recipient: roundStatusRaw[1] as string,
+      isDistributed: roundStatusRaw[4] as boolean,
+    };
+  }, [roundStatusRaw]);
 
-  // Determine myTurn
-  const myTurn = isUserTurn(recipient, userAddress);
+  const myTurn =
+    typeof recipient === 'string' &&
+    typeof userAddress === 'string' &&
+    recipient &&
+    userAddress &&
+    recipient.toLowerCase() === userAddress.toLowerCase();
 
-  // Compute hasContributed for the current user
-  const currentUserParticipant = participants.find(
-    (p) =>
-      typeof p.address === 'string' &&
-      typeof userAddress === 'string' &&
-      p.address.toLowerCase() === userAddress.toLowerCase()
-  );
-  const hasContributed = currentUserParticipant?.status === 'paid';
+  const hasContributed = useMemo(() => {
+    if (!participants || !roundStatusRaw || !userAddress) return false;
+    const me = participants.find(
+      (p) =>
+        typeof p.address === 'string' &&
+        typeof userAddress === 'string' &&
+        p.address &&
+        userAddress &&
+        p.address.toLowerCase() === userAddress.toLowerCase()
+    );
+    return me?.status === 'paid';
+  }, [participants, roundStatusRaw, userAddress]);
 
   // Helper to get block explorer URL
   const getExplorerUrl = (address: string) => {
@@ -145,7 +161,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
     const result = await contributeToRosca({
       walletClient,
       publicClient,
-      contractAddress,
+      contractAddress: contractAddress as `0x${string}`,
       contributionAmount: Number(contributionAmount) / 1e18,
       roscaAbi,
       chain,
@@ -171,15 +187,15 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
     setClaimError(null);
     try {
       // Debug: log balances before
-      const contractBalanceBefore = await publicClient.getBalance({ address: contractAddress });
-      const userBalanceBefore = await publicClient.getBalance({ address: userAddress });
+      const contractBalanceBefore = await publicClient.getBalance({ address: contractAddress as `0x${string}` });
+      const userBalanceBefore = await publicClient.getBalance({ address: userAddress as `0x${string}` });
       console.log('Contract balance before:', Number(contractBalanceBefore) / 1e18, 'ETH');
       console.log('User balance before:', Number(userBalanceBefore) / 1e18, 'ETH');
 
       const result = await claimDistributionToRosca({
         walletClient,
         publicClient,
-        contractAddress,
+        contractAddress: contractAddress as `0x${string}`,
         roscaAbi,
         chain,
       });
@@ -195,8 +211,8 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
       }
 
       // Debug: log balances after
-      const contractBalanceAfter = await publicClient.getBalance({ address: contractAddress });
-      const userBalanceAfter = await publicClient.getBalance({ address: userAddress });
+      const contractBalanceAfter = await publicClient.getBalance({ address: contractAddress as `0x${string}` });
+      const userBalanceAfter = await publicClient.getBalance({ address: userAddress as `0x${string}` });
       console.log('Contract balance after:', Number(contractBalanceAfter) / 1e18, 'ETH');
       console.log('User balance after:', Number(userBalanceAfter) / 1e18, 'ETH');
       // Optionally, fetch and log transaction receipt if you have the hash
