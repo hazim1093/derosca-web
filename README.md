@@ -1,38 +1,37 @@
-# DeROSCA Web
+# DeROSCA dApp
 
-A web interface for [DeROSCA](https://github.com/hazim1093/DeROSCA)
+A decentralized application (dApp) for [DeROSCA](https://github.com/hazim1093/DeROSCA).
 
-A decentralized ROSCA (Rotating Savings and Credit Association) smart contract on Ethereum. This app allows users to create, join, and manage ROSCAs in a trustless, transparent, and decentralized way.
+DeROSCA is a decentralized ROSCA (Rotating Savings and Credit Association) protocol on Ethereum. This dApp allows users to create, join, and manage ROSCAs in a trustless, transparent, and decentralized way, leveraging smart contracts for security and automation.
 
 ## Features
 
-- Create a new ROSCA group
-- Join existing ROSCAs
+- Create a new ROSCA group on-chain
+- Join existing decentralized ROSCAs
 - Dashboard to view your ROSCAs and participation status
-- Wallet connection (Ethereum)
+- Ethereum wallet connection (Web3-enabled)
 - Real-time notifications (contributions, pool distribution, etc.)
-- Transparent on-chain status
+- Transparent, on-chain status and history
 
 ## Backend
 
-This app interacts with the [DeROSCA smart contract backend](https://github.com/hazim1093/DeROSCA).
+This dApp interacts with the [DeROSCA smart contract backend](https://github.com/hazim1093/DeROSCA).
 See the backend repo for contract details, deployment, and security info.
 
 ## Usage
 
-1. Connect your Ethereum wallet.
-2. Create a new ROSCA or join an existing one.
-3. Contribute funds and participate in rounds.
-4. Track your status and receive payouts automatically.
+1. Connect your Ethereum wallet to the dApp.
+2. Create a new ROSCA or join an existing decentralized ROSCA group.
+3. Contribute funds and participate in automated rounds.
+4. Track your status and receive payouts automatically via smart contract.
 
 ## Development
-
 
 ### Project info
 
 The project was "vibe-coded" using Lovable and Cursor.
 
-**URL**: https://lovable.dev/projects/3c391189-ba5e-4301-a9f9-08db19e40502
+**Lovable Project URL:** https://lovable.dev/projects/3c391189-ba5e-4301-a9f9-08db19e40502
 
 ### Prerequisites
 
@@ -61,7 +60,7 @@ npm run dev
   - shadcn-ui
   - Tailwind CSS
   - React Query
-- **viem** (Ethereum interaction)
+- **viem** (Ethereum smart contract interaction)
 
 ## Deployment
 
