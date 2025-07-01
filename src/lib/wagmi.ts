@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { Chain, mainnet, sepolia, arbitrum } from 'wagmi/chains';
 
@@ -22,7 +23,9 @@ export const localhostChain: Chain = {
 export const supportedChains = [localhostChain as any, sepolia, arbitrum, mainnet];
 
 export function getChainById(chainId: number | undefined): Chain | undefined {
-  return supportedChains.find((c) => c.id === chainId);
+  return (supportedChains as any).find(
+    (c: any) => c.id === chainId
+  );
 }
 
 export const config = getDefaultConfig({
