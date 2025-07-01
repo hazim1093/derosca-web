@@ -10,6 +10,7 @@ import { getRoscaDetails } from '../lib/services/roscaService';
 import { roscaAbi } from '../lib/contracts/rosca.artifacts';
 import { waitForContractState } from '../lib/utils';
 import { toast } from 'sonner';
+import { getChainById } from '../lib/wagmi';
 
 interface CreateRoscaProps {
   onDeploy: (params: RoscaParams) => void;
@@ -31,8 +32,9 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
   const [deployedAddress, setDeployedAddress] = useState<string>('');
   const [deploymentStep, setDeploymentStep] = useState<'setup' | 'deploying' | 'confirming' | 'success'>('setup');
 
-  const { isConnected } = useAccount();
-  const { deployContract } = useContractDeployment();
+  const { isConnected, chainId } = useAccount();
+  const chain = getChainById(chainId) ?? undefined;
+  const { deployContract } = useContractDeployment(chain);
   const publicClient = usePublicClient();
 
   const contributionAmount = totalAmount / participants;

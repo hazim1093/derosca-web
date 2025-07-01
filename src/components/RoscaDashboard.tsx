@@ -17,6 +17,7 @@ import {
 import { shortenAddress, retryWithBackoff } from '../lib/utils';
 import { useRoscaParticipants } from '../hooks/useRoscaParticipants';
 import { toast } from 'sonner';
+import { getChainById } from '../lib/wagmi';
 
 interface RoscaInfo {
   contractAddress: string;
@@ -29,7 +30,8 @@ interface RoscaDashboardProps {
 
 const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisconnected }) => {
   const [activeTab, setActiveTab] = useState('status');
-  const chain = localhostChain;
+  const { chainId } = useAccount();
+  const chain = getChainById(chainId) ?? undefined;
   const contractAddress = roscaInfo?.contractAddress;
   const { address: userAddress, isConnected } = useAccount();
   const walletClient = useWalletClient().data;
@@ -148,7 +150,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
   const isLoading = loading || participantsLoading;
 
   // Use new useContributeRosca hook
-  const { contributeRosca } = useContributeRosca();
+  const { contributeRosca } = useContributeRosca(chain);
   const [isSubmittingContribution, setIsSubmittingContribution] = useState(false);
   const [contributionError, setContributionError] = useState<string | null>(null);
   const handleSubmitContribution = async () => {

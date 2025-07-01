@@ -4,6 +4,7 @@ import { localhostChain } from '../wagmi';
 import { roscaAbi, roscaBytecode } from './rosca.artifacts';
 import { simulateAndSend } from '../services/roscaService';
 import { PublicClient, WalletClient } from 'viem';
+import { Chain } from 'viem';
 
 
 // Types for contract interaction
@@ -24,7 +25,8 @@ export interface RoscaContractData {
 export const deployRoscaContract = async (
   walletClient: WalletClient,
   publicClient: PublicClient,
-  params: DeployParams
+  params: DeployParams,
+  chain: Chain = localhostChain // default to localhostChain
 ): Promise<string> => {
   try {
     // Get the connected account
@@ -56,7 +58,7 @@ export const deployRoscaContract = async (
         parseEther(params.totalAmount.toString())
       ],
       value: parseEther(contributionAmount.toString()),
-      chain: localhostChain,
+      chain,
     });
 
     console.log('Deployment transaction hash:', hash);
@@ -79,7 +81,7 @@ export const deployRoscaContract = async (
 };
 
 // React hook for contract deployment
-export const useContractDeployment = () => {
+export const useContractDeployment = (chain: Chain = localhostChain) => {
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
 
@@ -90,14 +92,14 @@ export const useContractDeployment = () => {
     if (!publicClient) {
       throw new Error('No public client');
     }
-    return deployRoscaContract(walletClient, publicClient, params);
+    return deployRoscaContract(walletClient, publicClient, params, chain);
   };
 
   return { deployContract };
 };
 
 // React hook for joining an existing ROSCA contract
-export const useJoinRosca = () => {
+export const useJoinRosca = (chain: Chain = localhostChain) => {
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
 
@@ -125,7 +127,7 @@ export const useJoinRosca = () => {
       abi: roscaAbi,
       functionName: 'registerParticipant',
       value,
-      chain: localhostChain,
+      chain,
     });
     if (result.success) {
       return result.hash;
@@ -140,7 +142,7 @@ export const useJoinRosca = () => {
 };
 
 // React hook for contributing to a ROSCA contract
-export const useContributeRosca = () => {
+export const useContributeRosca = (chain: Chain = localhostChain) => {
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
 
@@ -168,7 +170,7 @@ export const useContributeRosca = () => {
       abi: roscaAbi,
       functionName: 'contribute',
       value,
-      chain: localhostChain,
+      chain,
     });
     if (result.success) {
       return result.hash;

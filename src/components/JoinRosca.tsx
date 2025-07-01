@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { roscaAbi } from '../lib/contracts/rosca.artifacts';
 import { useJoinRosca } from '../lib/contracts/roscaContract';
 import { getRoscaDetails, extractRevertReason } from '../lib/services/roscaService';
+import { getChainById } from '../lib/wagmi';
 
 interface JoinRoscaProps {
   onJoin: (contractAddress: string) => void;
@@ -31,7 +32,9 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
 
   const { isConnected, address: account } = useAccount();
   const publicClient = usePublicClient();
-  const { joinRosca } = useJoinRosca();
+  const { chainId } = useAccount();
+  const chain = getChainById(chainId) ?? undefined;
+  const { joinRosca } = useJoinRosca(chain);
 
   const handleSearch = async () => {
     if (!contractAddress) return;
