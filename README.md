@@ -13,6 +13,15 @@ DeROSCA is a decentralized ROSCA (Rotating Savings and Credit Association) proto
 - Real-time notifications (contributions, pool distribution, etc.)
 - Transparent, on-chain status and history
 
+## Supported Networks
+
+- Localhost (default for development)
+- Ethereum Mainnet
+- Sepolia Testnet
+- Arbitrum One
+
+The app will automatically use the network selected in your wallet (e.g., MetaMask). You can deploy and interact with contracts on any of the supported networks.
+
 ## Backend
 
 This dApp interacts with the [DeROSCA smart contract backend](https://github.com/hazim1093/DeROSCA).
