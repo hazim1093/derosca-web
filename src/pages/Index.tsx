@@ -43,6 +43,9 @@ const Index = () => {
           </p>
         </div>
       </div>
+      <footer className="mt-12 text-center text-sm text-muted-foreground">
+        Built by <a href="https://github.com/hazim1093" target="_blank" rel="noopener noreferrer" className="text-rose-500 underline">@hazim1093</a>
+      </footer>
     </div>
   );
 };
