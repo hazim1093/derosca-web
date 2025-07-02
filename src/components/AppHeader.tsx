@@ -38,7 +38,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
               <div className="w-8 h-8 bg-gradient-to-br from-rose-400 to-peach-400 rounded-lg flex items-center justify-center shadow-md">
                 <span className="text-white font-bold text-sm">R</span>
               </div>
-              <h1 className="text-lg font-bold text-foreground">ROSCA</h1>
+              <h1 className="text-lg font-bold text-foreground">DeROSCA</h1>
             </button>
           )}
           {title && showBackButton && (
