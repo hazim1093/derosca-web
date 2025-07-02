@@ -427,3 +427,24 @@ export function isUserTurn(recipient: string, userAddress: string): boolean {
     recipient.toLowerCase() === userAddress.toLowerCase()
   );
 }
+
+/**
+ * Calculates the integer math for ROSCA contributions.
+ * @param totalAmount Total pool amount in ETH (number)
+ * @param participants Number of participants (number)
+ * @returns { contributionAmountWei, remainderWei, contributionAmountEth, actualTotalPoolEth }
+ */
+export function calculateRoscaContribution(totalAmount: number, participants: number) {
+  const totalAmountWei = BigInt(Math.floor(Number(totalAmount) * 1e18));
+  const participantsBig = BigInt(participants);
+  const contributionAmountWei = participants > 0 ? totalAmountWei / participantsBig : BigInt(0);
+  const remainderWei = participants > 0 ? totalAmountWei % participantsBig : BigInt(0);
+  const contributionAmountEth = Number(contributionAmountWei) / 1e18;
+  const actualTotalPoolEth = Number(contributionAmountWei * participantsBig) / 1e18;
+  return {
+    contributionAmountWei,
+    remainderWei,
+    contributionAmountEth,
+    actualTotalPoolEth,
+  };
+}

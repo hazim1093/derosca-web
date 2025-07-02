@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useContractDeployment, DeployParams } from '../lib/contracts/roscaContract';
-import { getRoscaDetails } from '../lib/services/roscaService';
+import { getRoscaDetails, calculateRoscaContribution } from '../lib/services/roscaService';
 import { roscaAbi } from '../lib/contracts/rosca.artifacts';
 import { waitForContractState } from '../lib/utils';
 import { toast } from 'sonner';
@@ -48,7 +48,8 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
   const { deployContract } = useContractDeployment(chain);
   const publicClient = usePublicClient();
 
-  const contributionAmount = totalAmount / participants;
+  // Use service for integer math for ETH calculations
+  const { remainderWei, contributionAmountEth: contributionAmount, actualTotalPoolEth: actualTotalPool } = calculateRoscaContribution(totalAmount, participants);
 
   const validateInputs = (): boolean => {
     const errors: {participants?: string; totalAmount?: string} = {};
@@ -68,6 +69,12 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
     // Validate contribution amount (total / participants)
     if (contributionAmount < 0.001) {
       errors.totalAmount = 'Contribution amount per participant must be at least 0.001 ETH';
+    }
+
+    // New: Check for exact divisibility
+    if (remainderWei !== BigInt(0)) {
+      errors.totalAmount =
+        'Total amount must be exactly divisible by the number of participants (in wei). Adjust the total or number of participants.';
     }
 
     // Network validation
@@ -303,13 +310,22 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
                   <span className="font-medium">{participants}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Total Pool:</span>
+                  <span>Total Pool (ETH):</span>
                   <span className="font-medium">{totalAmount} ETH</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Your Initial Contribution:</span>
-                  <span className="font-medium">{contributionAmount.toFixed(3)} ETH</span>
+                  <span>Your Initial Contribution (ETH):</span>
+                  <span className="font-medium">{contributionAmount.toFixed(6)} ETH</span>
                 </div>
+                <div className="flex justify-between">
+                  <span>Actual Pool Used (ETH):</span>
+                  <span className="font-medium">{actualTotalPool.toFixed(6)} ETH</span>
+                </div>
+                {remainderWei !== BigInt(0) && (
+                  <div className="text-red-600 text-xs mt-1">
+                    Warning: The total amount is not exactly divisible by the number of participants. The actual pool used will be {actualTotalPool.toFixed(6)} ETH, which is less than the entered total.
+                  </div>
+                )}
               </div>
             </div>
 
