@@ -5,6 +5,7 @@ import { roscaAbi, roscaBytecode } from './rosca.artifacts';
 import { simulateAndSend } from '../services/roscaService';
 import { PublicClient, WalletClient } from 'viem';
 import { Chain } from 'viem';
+import { categorizeError, SecurityError } from "../errors/errorHandling";
 
 
 // Types for contract interaction
@@ -69,14 +70,9 @@ export const deployRoscaContract = async (
 
     return receipt.contractAddress!;
   } catch (error) {
-    console.error('Error deploying contract:', error);
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      data: error.data,
-      stack: error.stack
-    });
-    throw error;
+    const enhancedError = categorizeError(error);
+    console.error('Error deploying contract:', enhancedError);
+    throw new SecurityError(enhancedError.userFriendly, enhancedError.category, enhancedError.retryable, error);
   }
 };
 

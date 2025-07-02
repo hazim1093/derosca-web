@@ -8,16 +8,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { roscaAbi } from '../lib/contracts/rosca.artifacts';
 import { useJoinRosca } from '../lib/contracts/roscaContract';
-import { getRoscaDetails, extractRevertReason } from '../lib/services/roscaService';
+import { getRoscaDetails } from '../lib/services/roscaService';
 import { getChainById } from '../lib/wagmi';
-import { 
-  validateEthereumAddress, 
-  validateNumericInput, 
+import {
+  validateEthereumAddress,
+  validateNumericInput,
   validateNetwork,
   blockchainQueryLimiter,
   isHighValueTransaction
 } from '../lib/validation/securityValidation';
-import { categorizeError, retryOperation, ErrorCategory } from '../lib/errors/errorHandling';
+import { categorizeError } from '../lib/errors/errorHandling';
+import { retryOperation } from '../lib/utils';
 import TransactionConfirmDialog from './security/TransactionConfirmDialog';
 
 interface JoinRoscaProps {
@@ -69,7 +70,7 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const address = e.target.value;
     setContractAddress(address);
-    
+
     // Clear previous errors when user starts typing
     if (validationError && address.length > 0) {
       setValidationError(null);
@@ -97,23 +98,23 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
 
     setIsLoading(true);
     setFetchError(null);
-    
+
     try {
       const details = await retryOperation(async () => {
-        return await getRoscaDetails({ 
-          contractAddress: contractAddress as `0x${string}`, 
-          publicClient, 
-          roscaAbi 
+        return await getRoscaDetails({
+          contractAddress: contractAddress as `0x${string}`,
+          publicClient,
+          roscaAbi
         });
       });
-      
+
       setRoscaDetails(details);
       setFetchError(null);
     } catch (err) {
       const enhancedError = categorizeError(err);
       setRoscaDetails(null);
       setFetchError(enhancedError.userFriendly);
-      
+
       // Log detailed error for debugging
       console.error('Search error details:', {
         category: enhancedError.category,
@@ -158,7 +159,7 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
 
     setIsJoining(true);
     setFetchError(null);
-    
+
     try {
       // Simulation step: check if the transaction would succeed
       const value = BigInt(Math.floor(Number(roscaDetails.contributionAmount) * 1e18));
@@ -176,7 +177,7 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
         setIsJoining(false);
         return;
       }
-      
+
       toast.info('Sending transaction to join ROSCA...');
       await joinRosca(contractAddress, roscaDetails.contributionAmount);
       toast.success('Successfully joined the ROSCA!');
@@ -238,7 +239,7 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
                     <Search className="w-4 h-4" />
                   </Button>
                 </div>
-                
+
                 {/* Validation Error */}
                 {validationError && (
                   <div className="bg-red-100 border border-red-300 p-3 rounded-xl mt-2 flex items-center gap-2 shadow-sm">
@@ -246,7 +247,7 @@ const JoinRosca: React.FC<JoinRoscaProps> = ({ onJoin }) => {
                     <span className="text-red-700 text-sm font-medium">{validationError}</span>
                   </div>
                 )}
-                
+
                 {/* Fetch Error */}
                 {fetchError && !validationError && (
                   <div className="bg-red-100 border border-red-300 p-3 rounded-xl mt-2 flex items-center gap-2 shadow-sm">

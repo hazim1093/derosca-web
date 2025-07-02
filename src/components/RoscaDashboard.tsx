@@ -3,7 +3,6 @@ import { Users, Eye, Plus, Gift, ExternalLink, Wallet, CheckCircle, User } from 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { localhostChain } from '@/lib/wagmi';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { roscaAbi } from '../lib/contracts/rosca.artifacts';
@@ -14,10 +13,12 @@ import {
   claimDistributionToRosca,
   getRoscaDashboardDetails,
 } from '../lib/services/roscaService';
-import { shortenAddress, retryWithBackoff } from '../lib/utils';
+import { shortenAddress } from '../lib/utils';
 import { useRoscaParticipants } from '../hooks/useRoscaParticipants';
 import { toast } from 'sonner';
 import { getChainById } from '../lib/wagmi';
+import { categorizeError } from "../lib/errors/errorHandling";
+import { retryOperation } from "../lib/utils";
 
 interface RoscaInfo {
   contractAddress: string;
@@ -63,7 +64,7 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
     setLoading(true);
     setError(null);
     try {
-      await retryWithBackoff(
+      await retryOperation(
         async () => {
           const data = await getRoscaDashboardDetails({
             contractAddress: contractAddress as `0x${string}`,
@@ -78,15 +79,14 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
           setRoundStatusRaw(data.roundStatusRaw);
           setRoscaStatus(data.roscaStatus);
         },
-        2, // maxAttempts: retry once
-        2000, // baseDelay: 2 seconds
+        2, // maxRetries: retry once
+        2000 // baseDelay: 2 seconds
       );
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message || 'Failed to fetch contract data');
-      } else {
-        setError('An unknown error occurred.');
-      }
+      const enhancedError = categorizeError(err);
+      setError(enhancedError.userFriendly);
+      // Optionally log details for debugging
+      console.error('Fetch contract data error:', enhancedError);
     } finally {
       setLoading(false);
     }
@@ -218,8 +218,11 @@ const RoscaDashboard: React.FC<RoscaDashboardProps> = ({ roscaInfo, onWalletDisc
       console.log('Contract balance after:', Number(contractBalanceAfter) / 1e18, 'ETH');
       console.log('User balance after:', Number(userBalanceAfter) / 1e18, 'ETH');
       // Optionally, fetch and log transaction receipt if you have the hash
-    } catch (err) {
-      setClaimError('Error during claim: ' + (err instanceof Error ? err.message : String(err)));
+    } catch (err: unknown) {
+      const enhancedError = categorizeError(err);
+      setClaimError('Error during claim: ' + enhancedError.userFriendly);
+      // Optionally log details for debugging
+      console.error('Claim distribution error:', enhancedError);
     }
     setIsClaiming(false);
   };

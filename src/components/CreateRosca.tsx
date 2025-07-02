@@ -11,13 +11,14 @@ import { roscaAbi } from '../lib/contracts/rosca.artifacts';
 import { waitForContractState } from '../lib/utils';
 import { toast } from 'sonner';
 import { getChainById } from '../lib/wagmi';
-import { 
-  validateNumericInput, 
+import {
+  validateNumericInput,
   validateNetwork,
   blockchainQueryLimiter,
   isHighValueTransaction
 } from '../lib/validation/securityValidation';
-import { categorizeError, retryOperation } from '../lib/errors/errorHandling';
+import { categorizeError } from '../lib/errors/errorHandling';
+import { retryOperation } from '../lib/utils';
 import TransactionConfirmDialog from './security/TransactionConfirmDialog';
 
 interface CreateRoscaProps {
@@ -51,24 +52,24 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
 
   const validateInputs = (): boolean => {
     const errors: {participants?: string; totalAmount?: string} = {};
-    
+
     // Validate participants
     const participantsValidation = validateNumericInput(participants, 2, 20, 0);
     if (!participantsValidation.isValid) {
       errors.participants = participantsValidation.error;
     }
-    
+
     // Validate total amount
     const totalAmountValidation = validateNumericInput(totalAmount, 0.1, 1000, 18);
     if (!totalAmountValidation.isValid) {
       errors.totalAmount = totalAmountValidation.error;
     }
-    
+
     // Validate contribution amount (total / participants)
     if (contributionAmount < 0.001) {
       errors.totalAmount = 'Contribution amount per participant must be at least 0.001 ETH';
     }
-    
+
     // Network validation
     if (chain) {
       const networkValidation = validateNetwork(chainId, chain.id);
@@ -78,7 +79,7 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
         return false;
       }
     }
-    
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -86,7 +87,7 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
   const handleParticipantsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(e.target.value);
     setParticipants(value);
-    
+
     // Clear validation errors when user changes input
     if (validationErrors.participants) {
       setValidationErrors(prev => ({ ...prev, participants: undefined }));
@@ -96,7 +97,7 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
   const handleTotalAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(e.target.value);
     setTotalAmount(value);
-    
+
     // Clear validation errors when user changes input
     if (validationErrors.totalAmount) {
       setValidationErrors(prev => ({ ...prev, totalAmount: undefined }));
@@ -184,7 +185,7 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
       setError(enhancedError.userFriendly);
       toast.error('Failed to deploy contract. Please try again.');
       setDeploymentStep('setup');
-      
+
       // Log detailed error for debugging
       console.error('Deployment error details:', {
         category: enhancedError.category,

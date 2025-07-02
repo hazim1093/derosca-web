@@ -1,5 +1,5 @@
 import { Abi, PublicClient, WalletClient, Chain } from 'viem';
-import { roscaAbi, roscaBytecode } from '../contracts/rosca.artifacts';
+import { categorizeError } from "../errors/errorHandling";
 
 // Fetch all participants addresses
 export async function fetchParticipants({
@@ -198,9 +198,9 @@ export async function getRoscaDashboardDetails({
       roscaStatus: details.status,
     };
   } catch (err) {
-    console.error('Error fetching dashboard details:', err);
-    // Re-throw the error to be caught by the component
-    throw err;
+    const enhancedError = categorizeError(err);
+    console.error('Error fetching dashboard details:', enhancedError);
+    throw enhancedError;
   }
 }
 
@@ -290,7 +290,8 @@ export async function simulateAndSend({
     });
     return { success: true, hash };
   } catch (err: unknown) {
-    return { success: false, error: extractRevertReason(err) };
+    const enhancedError = categorizeError(err);
+    return { success: false, error: enhancedError.userFriendly };
   }
 }
 

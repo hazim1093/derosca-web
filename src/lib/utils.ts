@@ -12,42 +12,6 @@ export function shortenAddress(address: string): string {
 }
 
 /**
- * Utility function to retry an async operation with exponential backoff
- * @param operation - The async function to retry
- * @param maxAttempts - Maximum number of attempts (default: 10)
- * @param baseDelay - Base delay in milliseconds (default: 2000)
- * @param shouldRetry - Optional function to determine if error should trigger retry
- * @returns Promise that resolves with the operation result or rejects after max attempts
- */
-export async function retryWithBackoff<T>(
-  operation: () => Promise<T>,
-  maxAttempts: number = 10,
-  baseDelay: number = 2000,
-  shouldRetry?: (error: unknown) => boolean
-): Promise<T> {
-  let attempts = 0;
-
-  while (attempts < maxAttempts) {
-    try {
-      return await operation();
-    } catch (error) {
-      attempts++;
-
-      // If we've reached max attempts or shouldRetry returns false, throw the error
-      if (attempts >= maxAttempts || (shouldRetry && !shouldRetry(error))) {
-        throw error;
-      }
-
-      // Wait before retrying (exponential backoff)
-      const delay = baseDelay * Math.pow(2, attempts - 1);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-
-  throw new Error('Operation failed after maximum attempts');
-}
-
-/**
  * Utility function to wait for a contract state to be ready
  * @param checkState - Function that checks if the contract state is ready
  * @param maxAttempts - Maximum number of attempts (default: 10)
@@ -59,7 +23,7 @@ export async function waitForContractState(
   maxAttempts: number = 10,
   baseDelay: number = 2000
 ): Promise<boolean> {
-  return retryWithBackoff(
+  return retryOperation(
     async () => {
       const isReady = await checkState();
       if (!isReady) {
@@ -70,4 +34,27 @@ export async function waitForContractState(
     maxAttempts,
     baseDelay
   );
+}
+
+export async function retryOperation<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: unknown;
+  const { categorizeError } = await import('./errors/errorHandling');
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      const enhancedError = categorizeError(error);
+      if (!enhancedError.retryable || attempt === maxRetries) {
+        throw error;
+      }
+      const delay = baseDelay * Math.pow(2, attempt);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
 }

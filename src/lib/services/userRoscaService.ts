@@ -1,5 +1,5 @@
 import { Abi, PublicClient } from 'viem';
-import { roscaAbi, roscaBytecode } from '../contracts/rosca.artifacts';
+import { categorizeError } from "../errors/errorHandling";
 
 export interface UserRosca {
   contractAddress: string;
@@ -56,7 +56,8 @@ export async function getUserRoscaContracts({
     console.log(`Found ${uniqueContracts.length} unique ROSCA contracts for user`);
     return uniqueContracts;
   } catch (error) {
-    console.error('Error fetching user ROSCA contracts:', error);
+    const enhancedError = categorizeError(error);
+    console.error('Error fetching user ROSCA contracts:', enhancedError);
     return [];
   }
 }
@@ -93,7 +94,8 @@ export async function getUserRoscasWithDetails({
         }
         return null;
       } catch (e) {
-        console.warn(`Failed to fetch details for ${contract.contractAddress}`, e);
+        const enhancedError = categorizeError(e);
+        console.warn(`Failed to fetch details for ${contract.contractAddress}`, enhancedError);
         return null; // Don't let one bad apple spoil the bunch
       }
     }),
@@ -139,8 +141,9 @@ export async function getRoscaByAddress({
       ...details,
     };
   } catch (error) {
-    console.error('Error fetching ROSCA by address:', error);
-    throw error;
+    const enhancedError = categorizeError(error);
+    console.error('Error fetching ROSCA by address:', enhancedError);
+    throw enhancedError;
   }
 }
 
@@ -168,7 +171,8 @@ export function getCachedUserRoscas(userAddress: string): { contractAddress: str
       return contracts;
     }
   } catch (error) {
-    console.error('Error parsing cached ROSCAs:', error);
+    const enhancedError = categorizeError(error);
+    console.error('Error parsing cached ROSCAs:', enhancedError);
   }
 
   return null;
