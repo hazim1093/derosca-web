@@ -11,6 +11,14 @@ import { roscaAbi } from '../lib/contracts/rosca.artifacts';
 import { waitForContractState } from '../lib/utils';
 import { toast } from 'sonner';
 import { getChainById } from '../lib/wagmi';
+import { 
+  validateNumericInput, 
+  validateNetwork,
+  blockchainQueryLimiter,
+  isHighValueTransaction
+} from '../lib/validation/securityValidation';
+import { categorizeError, retryOperation } from '../lib/errors/errorHandling';
+import TransactionConfirmDialog from './security/TransactionConfirmDialog';
 
 interface CreateRoscaProps {
   onDeploy: (params: RoscaParams) => void;
@@ -31,6 +39,8 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
   const [error, setError] = useState<string>('');
   const [deployedAddress, setDeployedAddress] = useState<string>('');
   const [deploymentStep, setDeploymentStep] = useState<'setup' | 'deploying' | 'confirming' | 'success'>('setup');
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{participants?: string; totalAmount?: string}>({});
 
   const { isConnected, chainId } = useAccount();
   const chain = getChainById(chainId) ?? undefined;
@@ -39,10 +49,80 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
 
   const contributionAmount = totalAmount / participants;
 
-  const handleDeploy = async () => {
+  const validateInputs = (): boolean => {
+    const errors: {participants?: string; totalAmount?: string} = {};
+    
+    // Validate participants
+    const participantsValidation = validateNumericInput(participants, 2, 20, 0);
+    if (!participantsValidation.isValid) {
+      errors.participants = participantsValidation.error;
+    }
+    
+    // Validate total amount
+    const totalAmountValidation = validateNumericInput(totalAmount, 0.1, 1000, 18);
+    if (!totalAmountValidation.isValid) {
+      errors.totalAmount = totalAmountValidation.error;
+    }
+    
+    // Validate contribution amount (total / participants)
+    if (contributionAmount < 0.001) {
+      errors.totalAmount = 'Contribution amount per participant must be at least 0.001 ETH';
+    }
+    
+    // Network validation
+    if (chain) {
+      const networkValidation = validateNetwork(chainId, chain.id);
+      if (!networkValidation.isValid) {
+        setError(networkValidation.error || 'Network error');
+        setValidationErrors(errors);
+        return false;
+      }
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleParticipantsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(e.target.value);
+    setParticipants(value);
+    
+    // Clear validation errors when user changes input
+    if (validationErrors.participants) {
+      setValidationErrors(prev => ({ ...prev, participants: undefined }));
+    }
+  };
+
+  const handleTotalAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(e.target.value);
+    setTotalAmount(value);
+    
+    // Clear validation errors when user changes input
+    if (validationErrors.totalAmount) {
+      setValidationErrors(prev => ({ ...prev, totalAmount: undefined }));
+    }
+  };
+
+  const handleDeployClick = () => {
     if (!isConnected) {
       setError('Please connect your wallet first');
       toast.error('Please connect your wallet to continue');
+      return;
+    }
+
+    if (!validateInputs()) {
+      return;
+    }
+
+    // Show confirmation dialog
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmDeploy = async () => {
+    // Rate limiting check
+    if (!blockchainQueryLimiter.canMakeRequest('deployment')) {
+      const remainingTime = Math.ceil(blockchainQueryLimiter.getRemainingTime('deployment') / 1000);
+      toast.error(`Rate limit exceeded. Please wait ${remainingTime} seconds before deploying.`);
       return;
     }
 
@@ -61,7 +141,9 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
 
       toast.info('Deploying ROSCA contract...');
 
-      const contractAddress = await deployContract(params);
+      const contractAddress = await retryOperation(async () => {
+        return await deployContract(params);
+      });
 
       setDeployedAddress(contractAddress);
       toast.success(`ROSCA contract deployed successfully at ${contractAddress}`);
@@ -89,7 +171,7 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
       // Small delay to show success state
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Call the original onDeploy callback with the contract data and address
+      // Call the original onDeploy callback
       onDeploy({
         numberOfParticipants: participants,
         totalAmount,
@@ -98,15 +180,24 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
       });
 
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Deployment failed';
-      setError(errorMessage);
+      const enhancedError = categorizeError(err);
+      setError(enhancedError.userFriendly);
       toast.error('Failed to deploy contract. Please try again.');
       setDeploymentStep('setup');
+      
+      // Log detailed error for debugging
+      console.error('Deployment error details:', {
+        category: enhancedError.category,
+        message: enhancedError.message,
+        retryable: enhancedError.retryable
+      });
     } finally {
       setIsDeploying(false);
       setIsConfirming(false);
     }
   };
+
+  const isHighValue = isHighValueTransaction(contributionAmount);
 
   const renderContent = () => {
     switch (deploymentStep) {
@@ -169,10 +260,15 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
                   min="2"
                   max="20"
                   value={participants}
-                  onChange={(e) => setParticipants(Number(e.target.value))}
-                  className="pl-10 rounded-xl border-rose-200 focus:border-rose-400"
+                  onChange={handleParticipantsChange}
+                  className={`pl-10 rounded-xl border-rose-200 focus:border-rose-400 ${
+                    validationErrors.participants ? 'border-red-300 focus:border-red-400' : ''
+                  }`}
                 />
               </div>
+              {validationErrors.participants && (
+                <p className="text-red-600 text-xs mt-1">{validationErrors.participants}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -187,10 +283,15 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
                   min="0.1"
                   step="0.1"
                   value={totalAmount}
-                  onChange={(e) => setTotalAmount(Number(e.target.value))}
-                  className="pl-10 rounded-xl border-rose-200 focus:border-rose-400"
+                  onChange={handleTotalAmountChange}
+                  className={`pl-10 rounded-xl border-rose-200 focus:border-rose-400 ${
+                    validationErrors.totalAmount ? 'border-red-300 focus:border-red-400' : ''
+                  }`}
                 />
               </div>
+              {validationErrors.totalAmount && (
+                <p className="text-red-600 text-xs mt-1">{validationErrors.totalAmount}</p>
+              )}
             </div>
 
             <div className="bg-rose-50 p-4 rounded-xl">
@@ -219,8 +320,8 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
             )}
 
             <Button
-              onClick={handleDeploy}
-              disabled={isDeploying || isConfirming || !isConnected}
+              onClick={handleDeployClick}
+              disabled={isDeploying || isConfirming || !isConnected || Object.keys(validationErrors).length > 0}
               className="w-full bg-gradient-to-r from-rose-500 to-peach-400 hover:from-rose-600 hover:to-peach-500 text-white rounded-xl py-3 font-medium transition-all duration-200"
             >
               {isDeploying || isConfirming ? 'Processing...' : 'Deploy Contract + Initial Contribution'}
@@ -231,26 +332,39 @@ const CreateRosca: React.FC<CreateRoscaProps> = ({ onDeploy }) => {
   };
 
   return (
-    <div className="flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-foreground">
-              Create New ROSCA
-            </CardTitle>
-            <p className="text-muted-foreground">
-              {deploymentStep === 'setup' ? 'Set your ROSCA parameters' :
-               deploymentStep === 'deploying' ? 'Deploying your contract' :
-               deploymentStep === 'confirming' ? 'Setting up your contract' :
-               'Contract ready!'}
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {renderContent()}
-          </CardContent>
-        </Card>
+    <>
+      <div className="flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <Card className="border-0 shadow-lg">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl font-bold text-foreground">
+                Create New ROSCA
+              </CardTitle>
+              <p className="text-muted-foreground">
+                {deploymentStep === 'setup' ? 'Set your ROSCA parameters' :
+                 deploymentStep === 'deploying' ? 'Deploying your contract' :
+                 deploymentStep === 'confirming' ? 'Setting up your contract' :
+                 'Contract ready!'}
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {renderContent()}
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+
+      {/* Transaction Confirmation Dialog */}
+      <TransactionConfirmDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        onConfirm={handleConfirmDeploy}
+        title="Confirm ROSCA Deployment"
+        description="You are about to deploy a new ROSCA contract and make your initial contribution. Please review the details carefully."
+        amount={contributionAmount.toFixed(3)}
+        isHighValue={isHighValue}
+      />
+    </>
   );
 };
 
